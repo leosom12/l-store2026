@@ -1,3 +1,17 @@
+// Carregar versão do sistema
+async function loadVersion() {
+    try {
+        const response = await fetch('/api/version');
+        const data = await response.json();
+        const versionElement = document.getElementById('app-version');
+        if (versionElement && data.version) {
+            versionElement.innerHTML = `<i class="ph ph-tag"></i> Versão: ${data.version}`;
+        }
+    } catch (error) {
+        console.error('Erro ao carregar versão:', error);
+    }
+}
+
 // ==================== VARIÁVEIS GLOBAIS ====================
 let cart = [];
 let currentUser = null;
@@ -19,6 +33,8 @@ document.addEventListener('DOMContentLoaded', () => {
         loadProducts();
         loadSales();
     }
+
+    loadVersion();
 
     // Event Listeners
     setupEventListeners();
@@ -902,39 +918,50 @@ window.login = function (e) {
         body: JSON.stringify({ email, password })
     })
         .then(response => response.json())
-    const adminTab = document.getElementById('admin-nav-tab');
+        .then(data => {
+            if (data.token) {
+                localStorage.setItem('authToken', data.token);
+                localStorage.setItem('userData', JSON.stringify(data.user));
 
-    if (user.isAdmin) {
-        // Admin
-        if (authScreen) authScreen.style.display = 'none';
-        if (appScreen) appScreen.style.display = 'block';
-        if (adminTab) adminTab.style.display = 'block';
-        loadDashboard();
-        loadProducts();
-        loadSales();
-        loadAdminUsers();
-    } else {
-        // Usuário regular
-        if (authScreen) authScreen.style.display = 'none';
-        if (appScreen) appScreen.style.display = 'block';
-        if (adminTab) adminTab.style.display = 'none';
-        loadDashboard();
-        loadProducts();
-        loadSales();
-    }
+                currentUser = data.user; // Update global variable
 
-    // Atualizar nome do usuário
-    const userInfo = document.getElementById('user-info');
-    if (userInfo) userInfo.textContent = user.username;
+                // Lógica de redirecionamento
+                const user = data.user;
+                const authScreen = document.getElementById('auth-screen');
+                const appScreen = document.getElementById('app-screen');
+                const adminTab = document.getElementById('admin-nav-tab');
 
-} else {
-    alert(data.error || 'Erro ao fazer login');
-}
+                if (user.isAdmin) {
+                    // Admin
+                    if (authScreen) authScreen.style.display = 'none';
+                    if (appScreen) appScreen.style.display = 'block';
+                    if (adminTab) adminTab.style.display = 'block';
+                    loadDashboard();
+                    loadProducts();
+                    loadSales();
+                    loadAdminUsers();
+                } else {
+                    // Usuário regular
+                    if (authScreen) authScreen.style.display = 'none';
+                    if (appScreen) appScreen.style.display = 'block';
+                    if (adminTab) adminTab.style.display = 'none';
+                    loadDashboard();
+                    loadProducts();
+                    loadSales();
+                }
+
+                // Atualizar nome do usuário
+                const userInfo = document.getElementById('user-info');
+                if (userInfo) userInfo.textContent = user.username;
+
+            } else {
+                alert(data.error || 'Erro ao fazer login');
+            }
         })
-        .catch (error => {
-    console.error('Erro:', error);
-    alert('Erro ao fazer login');
-});
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao fazer login');
+        });
 };
 
 window.register = function (e) {
