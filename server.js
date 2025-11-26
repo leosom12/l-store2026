@@ -156,7 +156,7 @@ function authenticateToken(req, res, next) {
 }
 
 // ==================== AUTH ROUTES ====================
-app.post('/api/register', async (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
     const { username, email, password, cpf } = req.body;
 
     if (!username || !email || !password) {
@@ -185,7 +185,7 @@ app.post('/api/register', async (req, res) => {
     );
 });
 
-app.post('/api/login', (req, res) => {
+app.post('/api/auth/login', (req, res) => {
     const { email, password } = req.body;
 
     mainDb.get(`SELECT * FROM users WHERE email = ?`, [email], (err, user) => {

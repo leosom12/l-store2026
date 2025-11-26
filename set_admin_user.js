@@ -29,6 +29,7 @@ db.serialize(() => {
                     } else {
                         console.log(`✅ Usuário ${email} atualizado para ADMIN com a nova senha.`);
                     }
+                    db.close();
                 }
             );
         } else {
@@ -42,10 +43,9 @@ db.serialize(() => {
                     } else {
                         console.log(`✅ Usuário ${email} criado como ADMIN com a senha fornecida.`);
                     }
+                    db.close();
                 }
             );
         }
     });
 });
-
-db.close();
