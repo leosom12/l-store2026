@@ -24,6 +24,21 @@ echo Verificando branch atual...
 git branch
 
 echo.
+echo.
+echo Incrementando versão do sistema...
+call node increment_version.js
+if %errorlevel% neq 0 (
+    echo ❌ Erro ao incrementar versão!
+    pause
+    exit /b 1
+)
+
+echo.
+echo Adicionando alterações ao Git...
+git add .
+git commit -m "Auto-update version"
+
+echo.
 echo Enviando alterações para o GitHub...
 echo.
 

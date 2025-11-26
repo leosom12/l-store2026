@@ -902,50 +902,39 @@ window.login = function (e) {
         body: JSON.stringify({ email, password })
     })
         .then(response => response.json())
-        .then(data => {
-            if (data.token) {
-                localStorage.setItem('authToken', data.token);
-                localStorage.setItem('userData', JSON.stringify(data.user));
+    const adminTab = document.getElementById('admin-nav-tab');
 
-                currentUser = data.user; // Update global variable
+    if (user.isAdmin) {
+        // Admin
+        if (authScreen) authScreen.style.display = 'none';
+        if (appScreen) appScreen.style.display = 'block';
+        if (adminTab) adminTab.style.display = 'block';
+        loadDashboard();
+        loadProducts();
+        loadSales();
+        loadAdminUsers();
+    } else {
+        // Usuário regular
+        if (authScreen) authScreen.style.display = 'none';
+        if (appScreen) appScreen.style.display = 'block';
+        if (adminTab) adminTab.style.display = 'none';
+        loadDashboard();
+        loadProducts();
+        loadSales();
+    }
 
-                // Lógica de redirecionamento
-                const user = data.user;
-                const authScreen = document.getElementById('auth-screen');
-                const appScreen = document.getElementById('app-screen');
-                const adminTab = document.getElementById('admin-nav-tab');
+    // Atualizar nome do usuário
+    const userInfo = document.getElementById('user-info');
+    if (userInfo) userInfo.textContent = user.username;
 
-                if (user.isAdmin) {
-                    // Admin
-                    if (authScreen) authScreen.style.display = 'none';
-                    if (appScreen) appScreen.style.display = 'block';
-                    if (adminTab) adminTab.style.display = 'block';
-                    loadDashboard();
-                    loadProducts();
-                    loadSales();
-                    loadAdminUsers();
-                } else {
-                    // Usuário regular
-                    if (authScreen) authScreen.style.display = 'none';
-                    if (appScreen) appScreen.style.display = 'block';
-                    if (adminTab) adminTab.style.display = 'none';
-                    loadDashboard();
-                    loadProducts();
-                    loadSales();
-                }
-
-                // Atualizar nome do usuário
-                const userInfo = document.getElementById('user-info');
-                if (userInfo) userInfo.textContent = user.username;
-
-            } else {
-                alert(data.error || 'Erro ao fazer login');
-            }
+} else {
+    alert(data.error || 'Erro ao fazer login');
+}
         })
-        .catch(error => {
-            console.error('Erro:', error);
-            alert('Erro ao fazer login');
-        });
+        .catch (error => {
+    console.error('Erro:', error);
+    alert('Erro ao fazer login');
+});
 };
 
 window.register = function (e) {

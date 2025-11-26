@@ -557,6 +557,17 @@ app.put('/api/admin/users/:id/subscription', authenticateToken, (req, res) => {
     });
 });
 
+// Rota para obter a versão do sistema
+app.get('/api/version', (req, res) => {
+    try {
+        const packageJson = require('./package.json');
+        res.json({ version: packageJson.version });
+    } catch (error) {
+        console.error('Erro ao ler versão:', error);
+        res.status(500).json({ error: 'Erro ao obter versão' });
+    }
+});
+
 // Health Check
 app.get('/api/health', (req, res) => {
     res.json({ status: 'online' });
