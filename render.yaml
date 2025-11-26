@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: supermarket-pos
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+    disk:
+      name: data
+      mountPath: /opt/render/project/src
+      sizeGB: 1
