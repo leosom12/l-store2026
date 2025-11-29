@@ -66,6 +66,21 @@ mainDb.serialize(() => {
     )`);
 });
 
+const multer = require('multer');
+
+// Configure Multer
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, 'public/uploads/')
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+        cb(null, 'product-' + uniqueSuffix + path.extname(file.originalname))
+    }
+});
+
+const upload = multer({ storage: storage });
+
 // Helper to get User DB
 function getUserDb(userId) {
     const dbPath = path.join(__dirname, `user_${userId}.db`);
@@ -80,8 +95,16 @@ function getUserDb(userId) {
             category TEXT,
             price REAL,
             stock INTEGER,
-            icon TEXT
-        )`);
+            icon TEXT,
+            image TEXT
+        )`, (err) => {
+            // Attempt to add column if table exists but column doesn't
+            if (!err) {
+                db.run("ALTER TABLE products ADD COLUMN image TEXT", (err) => {
+                    // Ignore error if column already exists
+                });
+            }
+        });
 
         // Sales Table
         db.run(`CREATE TABLE IF NOT EXISTS sales (
@@ -233,6 +256,12 @@ app.post('/api/client/login', (req, res) => {
 
 // ==================== APP ROUTES ====================
 
+// Version
+app.get('/api/version', (req, res) => {
+    const packageJson = require('./package.json');
+    res.json({ version: packageJson.version });
+});
+
 // Dashboard
 app.get('/api/dashboard', authenticateToken, (req, res) => {
     const db = getUserDb(req.user.id);
@@ -259,34 +288,63 @@ app.get('/api/dashboard', authenticateToken, (req, res) => {
 
 // Products
 app.get('/api/products', authenticateToken, (req, res) => {
+    console.log(`[DEBUG] GET /api/products for User ID: ${req.user.id}`);
     const db = getUserDb(req.user.id);
     db.all(`SELECT * FROM products`, (err, rows) => {
-        res.json(rows);
+        if (err) {
+            console.error('Error fetching products:', err);
+            db.close();
+            return res.status(500).json({ error: 'Erro ao buscar produtos' });
+        }
+        console.log(`[DEBUG] Found ${rows ? rows.length : 0} products for User ID: ${req.user.id}`);
+        res.json(rows || []);
         db.close();
     });
 });
 
-app.post('/api/products', authenticateToken, (req, res) => {
+app.post('/api/products', authenticateToken, upload.single('image'), (req, res) => {
     const { barcode, name, category, price, stock, icon } = req.body;
+    const image = req.file ? `/uploads/${req.file.filename}` : null;
+
     const db = getUserDb(req.user.id);
-    db.run(`INSERT INTO products(barcode, name, category, price, stock, icon) VALUES(?, ?, ?, ?, ?, ?)`,
-        [barcode, name, category, price, stock, icon],
+    db.run(`INSERT INTO products(barcode, name, category, price, stock, icon, image) VALUES(?, ?, ?, ?, ?, ?, ?)`,
+        [barcode, name, category, price, stock, icon, image],
         function (err) {
+            if (err) {
+                console.error('Error creating product:', err);
+                db.close();
+                return res.status(500).json({ error: 'Erro ao criar produto' });
+            }
             res.json({ id: this.lastID });
             db.close();
         }
     );
 });
 
-app.put('/api/products/:id', authenticateToken, (req, res) => {
+app.put('/api/products/:id', authenticateToken, upload.single('image'), (req, res) => {
     const { barcode, name, category, price, stock, icon } = req.body;
     const db = getUserDb(req.user.id);
-    db.run(`UPDATE products SET barcode=?, name=?, category=?, price=?, stock=?, icon=? WHERE id=?`,
-        [barcode, name, category, price, stock, icon, req.params.id],
-        function (err) {
-            res.json({ message: 'Updated' });
+
+    let query = `UPDATE products SET barcode=?, name=?, category=?, price=?, stock=?, icon=?`;
+    let params = [barcode, name, category, price, stock, icon];
+
+    if (req.file) {
+        query += `, image=?`;
+        params.push(`/uploads/${req.file.filename}`);
+    }
+
+    query += ` WHERE id=?`;
+    params.push(req.params.id);
+
+    db.run(query, params, function (err) {
+        if (err) {
+            console.error('Error updating product:', err);
             db.close();
+            return res.status(500).json({ error: 'Erro ao atualizar produto' });
         }
+        res.json({ message: 'Updated' });
+        db.close();
+    }
     );
 });
 
@@ -403,6 +461,24 @@ app.put('/api/debtors/:id', authenticateToken, (req, res) => {
                     db.close();
                 }
             );
+        }
+    );
+});
+
+
+app.post('/api/debtors/:id/pay', authenticateToken, (req, res) => {
+    const { amount } = req.body;
+    const db = getUserDb(req.user.id);
+
+    db.run(`UPDATE debtors SET debtAmount = debtAmount - ? WHERE id = ?`,
+        [amount, req.params.id],
+        function (err) {
+            if (err) {
+                db.close();
+                return res.status(500).json({ error: err.message });
+            }
+            res.json({ message: 'Payment recorded' });
+            db.close();
         }
     );
 });

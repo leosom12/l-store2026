@@ -58,7 +58,7 @@ function setupEventListeners() {
     // Produtos
     const addProductBtn = document.getElementById('add-product-btn');
     if (addProductBtn) {
-        addProductBtn.addEventListener('click', openProductModal);
+        addProductBtn.addEventListener('click', () => openProductModal(null));
     }
 
     const productForm = document.getElementById('product-form');
@@ -375,15 +375,28 @@ function loadProducts() {
     fetch('/api/products', {
         headers: { 'Authorization': `Bearer ${token}` }
     })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error('Erro na resposta do servidor');
+            return response.json();
+        })
         .then(products => {
             const tbody = document.getElementById('products-table-body');
             tbody.innerHTML = '';
 
+            if (!Array.isArray(products) || products.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-secondary);">Nenhum produto cadastrado.</td></tr>';
+                return;
+            }
+
             products.forEach(product => {
                 const tr = document.createElement('tr');
+                let imageHtml = `<span style="font-size: 1.5rem;">${product.icon || '📦'}</span>`;
+                if (product.image) {
+                    imageHtml = `<img src="${product.image}" alt="${product.name}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`;
+                }
+
                 tr.innerHTML = `
-                    <td style="font-size: 1.5rem;">${product.icon || '📦'}</td>
+                    <td>${imageHtml}</td>
                     <td>${product.barcode}</td>
                     <td>${product.name}</td>
                     <td>${product.category}</td>
@@ -397,12 +410,21 @@ function loadProducts() {
                 tbody.appendChild(tr);
             });
         })
-        .catch(error => console.error('Erro ao carregar produtos:', error));
+        .catch(error => {
+            console.error('Erro ao carregar produtos:', error);
+            const tbody = document.getElementById('products-table-body');
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--danger);">Erro ao carregar produtos. Tente recarregar a página.</td></tr>';
+        });
 }
 
 function openProductModal(productId = null) {
     const modal = document.getElementById('product-modal');
     const title = document.getElementById('modal-title');
+
+    // Reset preview
+    document.getElementById('image-preview').src = '';
+    document.getElementById('image-preview-container').style.display = 'none';
+    document.getElementById('product-image').value = '';
 
     if (productId) {
         title.textContent = 'Editar Produto';
@@ -419,7 +441,11 @@ function openProductModal(productId = null) {
                 document.getElementById('product-category').value = product.category;
                 document.getElementById('product-price').value = product.price;
                 document.getElementById('product-stock').value = product.stock;
-                document.getElementById('product-icon').value = product.icon || '';
+
+                if (product.image) {
+                    document.getElementById('image-preview').src = product.image;
+                    document.getElementById('image-preview-container').style.display = 'block';
+                }
             });
     } else {
         title.textContent = 'Novo Produto';
@@ -433,6 +459,19 @@ function openProductModal(productId = null) {
 function closeProductModal() {
     document.getElementById('product-modal').style.display = 'none';
     document.getElementById('product-form').reset();
+    document.getElementById('image-preview').src = '';
+    document.getElementById('image-preview-container').style.display = 'none';
+}
+
+function previewImage(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            document.getElementById('image-preview').src = e.target.result;
+            document.getElementById('image-preview-container').style.display = 'block';
+        }
+        reader.readAsDataURL(input.files[0]);
+    }
 }
 
 function saveProduct(e) {
@@ -440,14 +479,19 @@ function saveProduct(e) {
 
     const token = localStorage.getItem('authToken');
     const productId = document.getElementById('product-id').value;
-    const productData = {
-        barcode: document.getElementById('product-barcode').value,
-        name: document.getElementById('product-name').value,
-        category: document.getElementById('product-category').value,
-        price: parseFloat(document.getElementById('product-price').value),
-        stock: parseInt(document.getElementById('product-stock').value),
-        icon: document.getElementById('product-icon').value || '📦'
-    };
+
+    const formData = new FormData();
+    formData.append('barcode', document.getElementById('product-barcode').value);
+    formData.append('name', document.getElementById('product-name').value);
+    formData.append('category', document.getElementById('product-category').value);
+    formData.append('price', document.getElementById('product-price').value);
+    formData.append('stock', document.getElementById('product-stock').value);
+    formData.append('icon', '📦');
+
+    const imageFile = document.getElementById('product-image').files[0];
+    if (imageFile) {
+        formData.append('image', imageFile);
+    }
 
     const url = productId ? `/api/products/${productId}` : '/api/products';
     const method = productId ? 'PUT' : 'POST';
@@ -455,10 +499,10 @@ function saveProduct(e) {
     fetch(url, {
         method: method,
         headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+            'Authorization': `Bearer ${token}`
+            // Content-Type header must NOT be set when using FormData, browser sets it automatically with boundary
         },
-        body: JSON.stringify(productData)
+        body: formData
     })
         .then(response => response.json())
         .then(data => {
@@ -522,9 +566,14 @@ function scanProduct() {
 
                 // Mostrar info do produto escaneado
                 const infoDiv = document.getElementById('scanned-product-info');
+                let imageHtml = `<span style="font-size: 2rem;">${product.icon || '📦'}</span>`;
+                if (product.image) {
+                    imageHtml = `<img src="${product.image}" alt="${product.name}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px;">`;
+                }
+
                 infoDiv.innerHTML = `
                     <div class="product-scanned">
-                        <span style="font-size: 2rem;">${product.icon || '📦'}</span>
+                        ${imageHtml}
                         <div>
                             <strong>${product.name}</strong>
                             <p>${formatCurrency(product.price)}</p>
@@ -558,6 +607,11 @@ function addToCart(product) {
     if (existingItem) {
         if (existingItem.quantity < product.stock) {
             existingItem.quantity++;
+            // Update details in case they changed (e.g. image added)
+            existingItem.image = product.image;
+            existingItem.price = product.price;
+            existingItem.name = product.name;
+            existingItem.icon = product.icon;
         } else {
             alert('⚠️ Estoque insuficiente!');
             return;
@@ -568,10 +622,13 @@ function addToCart(product) {
             name: product.name,
             price: product.price,
             icon: product.icon,
+            image: product.image,
             quantity: 1,
             maxStock: product.stock
         });
+        console.log('DEBUG: Added to cart:', cart[cart.length - 1]);
     }
+
 
     updateCartDisplay();
 }
@@ -590,14 +647,24 @@ function updateCartDisplay() {
     let total = 0;
 
     cart.forEach((item, index) => {
+        console.log(`DEBUG: Rendering item ${index}:`, item);
         const itemTotal = item.price * item.quantity;
         total += itemTotal;
 
         const itemDiv = document.createElement('div');
         itemDiv.className = 'cart-item';
+
+        let imageHtml = `<span style="font-size: 1.2rem;">${item.icon || '📦'}</span>`;
+        if (item.image) {
+            // Ensure path starts with / if it's relative
+            const imagePath = item.image.startsWith('http') || item.image.startsWith('/') ? item.image : `/${item.image}`;
+            console.log('DEBUG: Image Path:', imagePath);
+            imageHtml = `<img src="${imagePath}" alt="${item.name}" style="width: 30px; height: 30px; object-fit: cover; border-radius: 4px;">`;
+        }
+
         itemDiv.innerHTML = `
             <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1;">
-                <span style="font-size: 1.2rem;">${item.icon || '📦'}</span>
+                ${imageHtml}
                 <div style="flex: 1;">
                     <strong>${item.name}</strong>
                     <p style="font-size: 0.85rem; color: var(--text-secondary);">${formatCurrency(item.price)} x ${item.quantity}</p>
@@ -1686,3 +1753,11 @@ document.getElementById('stock-movement-form')?.addEventListener('submit', funct
 
 // Event listener para botão de nova movimentação
 document.getElementById('add-stock-movement-btn')?.addEventListener('click', openStockMovementModal);
+
+// ==================== UTILS ====================
+function formatCurrency(value) {
+    return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+    }).format(value);
+}
