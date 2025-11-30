@@ -111,8 +111,15 @@ function getUserDb(userId) {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             total REAL,
             paymentMethod TEXT,
-            createdAt TEXT
-        )`);
+            createdAt TEXT,
+            cash_register_session_id INTEGER
+        )`, (err) => {
+            if (!err) {
+                db.run("ALTER TABLE sales ADD COLUMN cash_register_session_id INTEGER", (err) => {
+                    // Ignore error if column already exists
+                });
+            }
+        });
 
         // Sale Items Table
         db.run(`CREATE TABLE IF NOT EXISTS sale_items (
@@ -164,6 +171,25 @@ function getUserDb(userId) {
             reason TEXT,
             createdAt TEXT,
             FOREIGN KEY(productId) REFERENCES products(id)
+        )`);
+
+        // Clients Table (PIN-based registration)
+        db.run(`CREATE TABLE IF NOT EXISTS clients (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            pin TEXT NOT NULL,
+            createdAt TEXT,
+            UNIQUE(name, pin)
+        )`);
+
+        // Cash Register Sessions Table
+        db.run(`CREATE TABLE IF NOT EXISTS cash_register_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            openingBalance REAL,
+            closingBalance REAL,
+            status TEXT DEFAULT 'open',
+            openedAt TEXT,
+            closedAt TEXT
         )`);
     });
 
@@ -251,6 +277,113 @@ app.post('/api/client/login', (req, res) => {
             });
             userDb.close();
         });
+    });
+});
+
+// ==================== CLIENT PIN REGISTRATION ====================
+
+// Register a new client (Name + PIN)
+app.post('/api/clients/register', authenticateToken, (req, res) => {
+    const { name, pin } = req.body;
+    const userId = req.user.id;
+
+    // Validate input
+    if (!name || !pin) {
+        return res.status(400).json({ error: 'Nome e PIN são obrigatórios' });
+    }
+
+    // Validate PIN (4 digits)
+    if (!/^\d{4}$/.test(pin)) {
+        return res.status(400).json({ error: 'O PIN deve ter exatamente 4 dígitos' });
+    }
+
+    const db = getUserDb(userId);
+    const createdAt = new Date().toISOString();
+
+    db.run('INSERT INTO clients (name, pin, createdAt) VALUES (?, ?, ?)',
+        [name, pin, createdAt],
+        function (err) {
+            if (err) {
+                console.error('Erro ao registrar cliente:', err);
+                if (err.message.includes('UNIQUE')) {
+                    db.close();
+                    return res.status(400).json({ error: 'Este nome com este PIN já está cadastrado' });
+                }
+                db.close();
+                return res.status(500).json({ error: 'Erro ao registrar cliente' });
+            }
+            res.json({
+                message: 'Cliente cadastrado com sucesso',
+                clientId: this.lastID
+            });
+            db.close();
+        }
+    );
+});
+
+// Client login (Name + PIN)
+app.post('/api/clients/login', (req, res) => {
+    const { name, pin, storeEmail } = req.body;
+
+    // Validate input
+    if (!name || !pin || !storeEmail) {
+        return res.status(400).json({ error: 'Nome, PIN e email da loja são obrigatórios' });
+    }
+
+    // Find store by email
+    mainDb.get('SELECT id FROM users WHERE email = ?', [storeEmail], (err, store) => {
+        if (err || !store) {
+            return res.status(404).json({ error: 'Loja não encontrada' });
+        }
+
+        const db = getUserDb(store.id);
+
+        db.get('SELECT * FROM clients WHERE name = ? AND pin = ?', [name, pin], (err, client) => {
+            if (err) {
+                console.error('Erro ao buscar cliente:', err);
+                db.close();
+                return res.status(500).json({ error: 'Erro ao fazer login' });
+            }
+
+            if (!client) {
+                db.close();
+                return res.status(401).json({ error: 'Nome ou PIN incorretos' });
+            }
+
+            // Generate a token for the client
+            const token = jwt.sign(
+                { clientId: client.id, clientName: client.name, storeId: store.id },
+                SECRET_KEY,
+                { expiresIn: '24h' }
+            );
+
+            res.json({
+                message: 'Login realizado com sucesso',
+                token,
+                client: {
+                    id: client.id,
+                    name: client.name
+                }
+            });
+            db.close();
+        });
+    });
+});
+
+// List all clients (for store owner)
+app.get('/api/clients', authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    const db = getUserDb(userId);
+
+    db.all('SELECT id, name, createdAt FROM clients ORDER BY createdAt DESC', (err, clients) => {
+        if (err) {
+            console.error('Erro ao listar clientes:', err);
+            db.close();
+            return res.status(500).json({ error: 'Erro ao listar clientes' });
+        }
+
+        res.json(clients);
+        db.close();
     });
 });
 
@@ -377,28 +510,43 @@ app.post('/api/sales', authenticateToken, (req, res) => {
     const { items, paymentMethod, total } = req.body;
     const db = getUserDb(req.user.id);
 
-    db.serialize(() => {
-        db.run(`INSERT INTO sales(total, paymentMethod, createdAt) VALUES(?, ?, ?)`,
-            [total, paymentMethod, new Date().toISOString()],
-            function (err) {
-                if (err) return res.status(500).json({ error: err.message });
-                const saleId = this.lastID;
+    // Check for open cash register session
+    db.get(`SELECT id FROM cash_register_sessions WHERE status = 'open' ORDER BY id DESC LIMIT 1`, (err, session) => {
+        if (err) {
+            db.close();
+            return res.status(500).json({ error: err.message });
+        }
 
-                const stmt = db.prepare(`INSERT INTO sale_items(saleId, productId, quantity, price) VALUES(?, ?, ?, ?)`);
-                const updateStock = db.prepare(`UPDATE products SET stock = stock - ? WHERE id = ?`);
+        if (!session) {
+            db.close();
+            return res.status(400).json({ error: 'O caixa está fechado. Abra o caixa para realizar vendas.' });
+        }
 
-                items.forEach(item => {
-                    stmt.run(saleId, item.productId, item.quantity, item.price);
-                    updateStock.run(item.quantity, item.productId);
-                });
+        const sessionId = session.id;
 
-                stmt.finalize();
-                updateStock.finalize();
+        db.serialize(() => {
+            db.run(`INSERT INTO sales(total, paymentMethod, createdAt, cash_register_session_id) VALUES(?, ?, ?, ?)`,
+                [total, paymentMethod, new Date().toISOString(), sessionId],
+                function (err) {
+                    if (err) return res.status(500).json({ error: err.message });
+                    const saleId = this.lastID;
 
-                res.json({ id: saleId, total });
-                db.close();
-            }
-        );
+                    const stmt = db.prepare(`INSERT INTO sale_items(saleId, productId, quantity, price) VALUES(?, ?, ?, ?)`);
+                    const updateStock = db.prepare(`UPDATE products SET stock = stock - ? WHERE id = ?`);
+
+                    items.forEach(item => {
+                        stmt.run(saleId, item.productId, item.quantity, item.price);
+                        updateStock.run(item.quantity, item.productId);
+                    });
+
+                    stmt.finalize();
+                    updateStock.finalize();
+
+                    res.json({ id: saleId, total });
+                    db.close();
+                }
+            );
+        });
     });
 });
 
@@ -691,6 +839,315 @@ app.post('/api/debtors/:id/pay', authenticateToken, (req, res) => {
             db.close();
         });
     });
+});
+
+// ==================== CASH REGISTER ROUTES ====================
+app.post('/api/cash-register/open', authenticateToken, (req, res) => {
+    const { openingBalance } = req.body;
+    const db = getUserDb(req.user.id);
+
+    // Check if there is already an open session
+    db.get(`SELECT * FROM cash_register_sessions WHERE status = 'open'`, (err, session) => {
+        if (err) {
+            db.close();
+            return res.status(500).json({ error: err.message });
+        }
+
+        if (session) {
+            db.close();
+            return res.status(400).json({ error: 'Já existe um caixa aberto' });
+        }
+
+        db.run(`INSERT INTO cash_register_sessions(openingBalance, status, openedAt) VALUES(?, 'open', ?)`,
+            [openingBalance, new Date().toISOString()],
+            function (err) {
+                if (err) {
+                    db.close();
+                    return res.status(500).json({ error: err.message });
+                }
+                res.json({ id: this.lastID, message: 'Caixa aberto com sucesso' });
+                db.close();
+            }
+        );
+    });
+});
+
+app.get('/api/cash-register/status', authenticateToken, (req, res) => {
+    const db = getUserDb(req.user.id);
+    db.get(`SELECT * FROM cash_register_sessions WHERE status = 'open' ORDER BY id DESC LIMIT 1`, (err, session) => {
+        if (err) {
+            db.close();
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(session || { status: 'closed' });
+        db.close();
+    });
+});
+
+app.post('/api/cash-register/close', authenticateToken, (req, res) => {
+    const db = getUserDb(req.user.id);
+
+    // Get open session
+    db.get(`SELECT * FROM cash_register_sessions WHERE status = 'open' ORDER BY id DESC LIMIT 1`, (err, session) => {
+        if (err || !session) {
+            db.close();
+            return res.status(400).json({ error: 'Nenhum caixa aberto para fechar' });
+        }
+
+        // Calculate total sales for this session
+        db.get(`SELECT SUM(total) as totalSales FROM sales WHERE cash_register_session_id = ?`, [session.id], (err, result) => {
+            if (err) {
+                db.close();
+                return res.status(500).json({ error: err.message });
+            }
+
+            const totalSales = result.totalSales || 0;
+            const closingBalance = session.openingBalance + totalSales;
+            const closedAt = new Date().toISOString();
+
+            db.run(`UPDATE cash_register_sessions SET closingBalance = ?, status = 'closed', closedAt = ? WHERE id = ?`,
+                [closingBalance, closedAt, session.id],
+                function (err) {
+                    if (err) {
+                        db.close();
+                        return res.status(500).json({ error: err.message });
+                    }
+                    res.json({
+                        message: 'Caixa fechado com sucesso',
+                        openingBalance: session.openingBalance,
+                        totalSales: totalSales,
+                        closingBalance: closingBalance,
+                        closedAt: closedAt
+                    });
+                    db.close();
+                }
+            );
+        });
+    });
+});
+
+// ==================== CLIENT PIN REGISTRATION ====================
+
+// Register a new client (Name + PIN)
+app.post('/api/clients/register', authenticateToken, (req, res) => {
+    const { name, pin } = req.body;
+    const userId = req.user.userId;
+
+    // Validate input
+    if (!name || !pin) {
+        return res.status(400).json({ error: 'Nome e PIN são obrigatórios' });
+    }
+
+    // Validate PIN (4 digits)
+    if (!/^\d{4}$/.test(pin)) {
+        return res.status(400).json({ error: 'O PIN deve ter exatamente 4 dígitos' });
+    }
+
+    const db = getUserDb(userId);
+    const createdAt = new Date().toISOString();
+
+    db.run('INSERT INTO clients (name, pin, createdAt) VALUES (?, ?, ?)',
+        [name, pin, createdAt],
+        function (err) {
+            if (err) {
+                console.error('Erro ao registrar cliente:', err);
+                if (err.message.includes('UNIQUE')) {
+                    return res.status(400).json({ error: 'Este nome com este PIN já está cadastrado' });
+                }
+                return res.status(500).json({ error: 'Erro ao registrar cliente' });
+            }
+            res.json({
+                message: 'Cliente cadastrado com sucesso',
+                clientId: this.lastID
+            });
+            db.close();
+        }
+    );
+});
+
+// Client login (Name + PIN)
+app.post('/api/clients/login', (req, res) => {
+    const { name, pin, storeEmail } = req.body;
+
+    // Validate input
+    if (!name || !pin || !storeEmail) {
+        return res.status(400).json({ error: 'Nome, PIN e email da loja são obrigatórios' });
+    }
+
+    // Find store by email
+    mainDb.get('SELECT id FROM users WHERE email = ?', [storeEmail], (err, store) => {
+        if (err || !store) {
+            return res.status(404).json({ error: 'Loja não encontrada' });
+        }
+
+        const db = getUserDb(store.id);
+
+        db.get('SELECT * FROM clients WHERE name = ? AND pin = ?', [name, pin], (err, client) => {
+            if (err) {
+                console.error('Erro ao buscar cliente:', err);
+                db.close();
+                return res.status(500).json({ error: 'Erro ao fazer login' });
+            }
+
+            if (!client) {
+                db.close();
+                return res.status(401).json({ error: 'Nome ou PIN incorretos' });
+            }
+
+            // Generate a token for the client
+            const token = jwt.sign(
+                { clientId: client.id, clientName: client.name, storeId: store.id },
+                SECRET_KEY,
+                { expiresIn: '24h' }
+            );
+
+            res.json({
+                message: 'Login realizado com sucesso',
+                token,
+                client: {
+                    id: client.id,
+                    name: client.name
+                }
+            });
+            db.close();
+        });
+    });
+});
+
+// List all clients (for store owner)
+app.get('/api/clients', authenticateToken, (req, res) => {
+    const userId = req.user.userId;
+    const db = getUserDb(userId);
+
+    db.all('SELECT id, name, createdAt FROM clients ORDER BY createdAt DESC', (err, clients) => {
+        if (err) {
+            console.error('Erro ao listar clientes:', err);
+            db.close();
+            return res.status(500).json({ error: 'Erro ao listar clientes' });
+        }
+
+        res.json(clients);
+        db.close();
+    });
+});
+
+// ==================== CLIENT STORE ENDPOINTS ====================
+
+// Checkout - Create order for client
+app.post('/api/client/checkout', (req, res) => {
+    const { clientId, items, total } = req.body;
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+        return res.status(401).json({ error: 'Não autorizado' });
+    }
+
+    // Verify client token
+    const token = authHeader.split(' ')[1];
+    try {
+        const decoded = jwt.verify(token, SECRET_KEY);
+
+        if (!decoded.clientId || !decoded.storeId) {
+            return res.status(401).json({ error: 'Token inválido' });
+        }
+
+        const db = getUserDb(decoded.storeId);
+        const createdAt = new Date().toISOString();
+
+        // Create sale record
+        db.run('INSERT INTO sales (total, paymentMethod, createdAt) VALUES (?, ?, ?)',
+            [total, 'client_order', createdAt],
+            function (err) {
+                if (err) {
+                    console.error('Erro ao criar pedido:', err);
+                    db.close();
+                    return res.status(500).json({ error: 'Erro ao criar pedido' });
+                }
+
+                const saleId = this.lastID;
+
+                // Insert sale items and update stock
+                let completed = 0;
+                const totalItems = items.length;
+
+                items.forEach(item => {
+                    // Insert sale item
+                    db.run('INSERT INTO sale_items (saleId, productId, quantity, price) VALUES (?, ?, ?, ?)',
+                        [saleId, item.id, item.quantity, item.price],
+                        (err) => {
+                            if (err) {
+                                console.error('Erro ao adicionar item:', err);
+                            }
+
+                            // Update product stock
+                            db.run('UPDATE products SET stock = stock - ? WHERE id = ?',
+                                [item.quantity, item.id],
+                                (err) => {
+                                    if (err) {
+                                        console.error('Erro ao atualizar estoque:', err);
+                                    }
+
+                                    completed++;
+                                    if (completed === totalItems) {
+                                        res.json({
+                                            message: 'Pedido criado com sucesso',
+                                            orderId: saleId
+                                        });
+                                        db.close();
+                                    }
+                                }
+                            );
+                        }
+                    );
+                });
+            }
+        );
+    } catch (err) {
+        console.error('Erro ao verificar token:', err);
+        return res.status(401).json({ error: 'Token inválido' });
+    }
+});
+
+// Get client orders
+app.get('/api/client/orders', (req, res) => {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+        return res.status(401).json({ error: 'Não autorizado' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    try {
+        const decoded = jwt.verify(token, SECRET_KEY);
+
+        if (!decoded.clientId || !decoded.storeId) {
+            return res.status(401).json({ error: 'Token inválido' });
+        }
+
+        const db = getUserDb(decoded.storeId);
+
+        // Get all sales made by client (orders with paymentMethod = 'client_order')
+        db.all(`
+            SELECT s.id, s.total, s.createdAt, COUNT(si.id) as itemCount
+            FROM sales s
+            LEFT JOIN sale_items si ON s.id = si.saleId
+            WHERE s.paymentMethod = 'client_order'
+            GROUP BY s.id
+            ORDER BY s.createdAt DESC
+        `, (err, orders) => {
+            if (err) {
+                console.error('Erro ao buscar pedidos:', err);
+                db.close();
+                return res.status(500).json({ error: 'Erro ao buscar pedidos' });
+            }
+
+            res.json(orders);
+            db.close();
+        });
+    } catch (err) {
+        console.error('Erro ao verificar token:', err);
+        return res.status(401).json({ error: 'Token inválido' });
+    }
 });
 
 // Rota para obter a versão do sistema
