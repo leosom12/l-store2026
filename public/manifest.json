@@ -1,6 +1,6 @@
 {
-    "name": "L-PDV Sistema",
-    "short_name": "L-PDV",
+    "name": "L-STORE Sistema",
+    "short_name": "L-STORE",
     "description": "Sistema de Ponto de Venda Completo",
     "start_url": "/",
     "display": "standalone",

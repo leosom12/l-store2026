@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#1e293b">
     <meta name="description" content="Sistema PDV para Supermercado">
-    <title>L-PDV - Sistema de Ponto de Venda</title>
+    <title>L-STORE - Sistema de Ponto de Venda</title>
 
     <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -23,7 +23,7 @@
     <div id="auth-screen" class="screen">
         <div class="auth-container">
             <div class="auth-header">
-                <h1><i class="ph ph-shopping-cart"></i> L-PDV</h1>
+                <h1><i class="ph ph-shopping-cart"></i> L-STORE</h1>
                 <p>Sistema de Ponto de Venda</p>
             </div>
 
@@ -59,6 +59,11 @@
                         <input type="text" id="register-username" required placeholder="Nome da Empresa">
                     </div>
                     <div class="form-group">
+                        <label><i class="ph ph-lock-key"></i> PIN (4 dígitos)</label>
+                        <input type="password" id="register-pin" required placeholder="1234" pattern="\d{4}"
+                            maxlength="4" inputmode="numeric" title="Digite 4 números">
+                    </div>
+                    <div class="form-group">
                         <label><i class="ph ph-identification-card"></i> CNPJ</label>
                         <input type="text" id="register-cpf" required placeholder="00.000.000/0000-00" maxlength="18">
                     </div>
@@ -83,7 +88,7 @@
                 <button class="btn-secondary"
                     style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem;"
                     onclick="showClientLogin()">
-                    <i class="ph ph-storefront"></i> LPDV-store
+                    <i class="ph ph-storefront"></i> L-STORE
                 </button>
 
                 <!-- Botão Baixar App -->
@@ -122,48 +127,19 @@
     <div id="client-login-screen" class="screen" style="display: none;">
         <div class="auth-container">
             <div class="auth-header">
-                <h1><i class="ph ph-storefront"></i> LPDV-STORE</h1>
+                <h1><i class="ph ph-storefront"></i> L-STORE</h1>
                 <p>Cadastro e Acesso com PIN</p>
             </div>
 
-            <!-- Formulário de Cadastro do Cliente (Nome + PIN) -->
-            <div id="client-register-form" class="auth-form">
-                <h2>Cadastrar Cliente</h2>
-                <p class="auth-subtitle"
-                    style="color: var(--text-secondary); text-align: center; margin-bottom: 1rem; font-size: 0.85rem;">
-                    <i class="ph ph-info"></i> Crie um PIN de 4 dígitos para acessar
-                </p>
-                <form onsubmit="registerClient(event)">
-                    <input type="hidden" id="client-store-email" value="">
-                    <div class="form-group">
-                        <label><i class="ph ph-user"></i> Seu Nome</label>
-                        <input type="text" id="client-register-name" required placeholder="Digite seu nome"
-                            autocomplete="off">
-                    </div>
-                    <div class="form-group">
-                        <label><i class="ph ph-lock-key"></i> Criar PIN (4 dígitos)</label>
-                        <input type="password" id="client-register-pin" required placeholder="1234" pattern="\d{4}"
-                            maxlength="4" inputmode="numeric" autocomplete="off" title="Digite exatamente 4 dígitos">
-                    </div>
-                    <div class="form-group">
-                        <label><i class="ph ph-lock-key"></i> Confirmar PIN</label>
-                        <input type="password" id="client-register-pin-confirm" required placeholder="1234"
-                            pattern="\d{4}" maxlength="4" inputmode="numeric" autocomplete="off">
-                    </div>
-                    <button type="submit" class="btn-primary">Cadastrar</button>
-                </form>
-                <p class="auth-switch">
-                    Já tem cadastro? <a href="#" onclick="showClientLoginForm(); return false;">Fazer login</a>
-                </p>
-            </div>
+            <!-- Formulário de Cadastro do Cliente (REMOVIDO) -->
 
             <!-- Formulário de Login do Cliente (Nome + PIN) -->
-            <div id="client-login-form" class="auth-form" style="display: none;">
+            <div id="client-login-form" class="auth-form">
                 <h2>Login Cliente</h2>
                 <form onsubmit="loginClient(event)">
                     <div class="form-group">
-                        <label><i class="ph ph-user"></i> Seu Nome</label>
-                        <input type="text" id="client-login-name" required placeholder="Digite seu nome"
+                        <label><i class="ph ph-storefront"></i> Nome da Loja</label>
+                        <input type="text" id="client-login-name" required placeholder="Digite o nome da loja"
                             autocomplete="off">
                     </div>
                     <div class="form-group">
@@ -173,9 +149,6 @@
                     </div>
                     <button type="submit" class="btn-primary">Entrar</button>
                 </form>
-                <p class="auth-switch">
-                    Não tem cadastro? <a href="#" onclick="showClientRegisterForm(); return false;">Cadastrar-se</a>
-                </p>
             </div>
 
             <!-- Rodapé com Voltar -->
@@ -192,6 +165,10 @@
         <div class="store-container">
             <!-- Header with Search -->
             <div class="store-header">
+                <div
+                    style="color: white; font-weight: 800; font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="ph ph-storefront"></i> L-STORE
+                </div>
                 <div class="store-search-bar">
                     <i class="ph ph-magnifying-glass"></i>
                     <input type="text" id="store-search-input" placeholder="Buscar produtos...">
@@ -279,9 +256,44 @@
                     <span>Total:</span>
                     <span class="total-amount" id="client-cart-total">R$ 0,00</span>
                 </div>
+
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; color: #666; font-weight: 600;">Forma de
+                        Pagamento</label>
+                    <select id="client-payment-method"
+                        style="width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; background: white;">
+                        <option value="pix">PIX</option>
+                        <option value="cartao">Cartão</option>
+                        <option value="dinheiro">Dinheiro</option>
+                    </select>
+                </div>
+
                 <button class="btn-checkout" onclick="checkoutCart()">
                     <i class="ph ph-credit-card"></i> Finalizar Pedido
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Client PIX Modal -->
+    <div id="client-pix-modal" class="modal">
+        <div class="modal-content" style="text-align: center;">
+            <h2 style="color: #1e40af;">Pagamento via PIX</h2>
+            <p style="margin-bottom: 1rem;">Escaneie o QR Code abaixo para pagar</p>
+
+            <div id="client-pix-qr"
+                style="background: white; padding: 1rem; display: inline-block; border-radius: 8px; margin-bottom: 1rem;">
+                <!-- QR Code here -->
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <p style="font-size: 0.9rem; color: #666;">Chave PIX:</p>
+                <strong id="client-pix-key-display" style="font-size: 1.1rem; user-select: all;"></strong>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn-success" onclick="confirmClientPixPayment()">Já fiz o pagamento</button>
+                <button class="btn-secondary" onclick="closeClientPixModal()">Cancelar</button>
             </div>
         </div>
     </div>
@@ -329,14 +341,15 @@
     </div>
 
     <!-- ========== TELA PRINCIPAL DO APP ========== -->
+    <!-- ========== TELA PRINCIPAL DO APP ========== -->
     <div id="app-screen" class="screen" style="display: none;">
         <div class="app-container">
             <!-- Header Redesign -->
             <header class="app-header">
                 <div class="header-left">
                     <div class="logo-area">
-                        <span style="color: #fca5a5; font-weight: bold;">beep</span><span
-                            style="color: white; font-weight: bold;">start</span>
+                        <span style="color: #fca5a5; font-weight: bold;">L-</span><span
+                            style="color: white; font-weight: bold;">PDV</span>
                     </div>
                     <button class="header-btn active" onclick="switchTab('dashboard')"><i class="ph ph-house"></i>
                         INÍCIO</button>
@@ -344,6 +357,12 @@
                     <button class="header-btn"><i class="ph ph-chart-line-up"></i> RESULTADOS</button>
                 </div>
                 <div class="header-right">
+                    <div id="header-user-display"
+                        style="display: flex; align-items: center; gap: 0.5rem; margin-right: 1rem; color: var(--text-secondary); font-weight: 500;">
+                        <i class="ph ph-user-circle" style="font-size: 1.2rem;"></i>
+                        <span id="header-username">Usuário</span>
+                        <span id="header-user-pin" class="pin-badge" style="display: none;">PIN: ****</span>
+                    </div>
                     <button class="header-btn"><i class="ph ph-arrows-clockwise"></i> SINCRONIZAR</button>
                     <button class="header-btn"><i class="ph ph-gear"></i> OPÇÕES</button>
                 </div>
@@ -396,9 +415,9 @@
                                 <div class="shortcut-icon"><i class="ph ph-receipt"></i></div>
                                 <span>VENDAS</span>
                             </button>
-                            <button class="dashboard-shortcut teal" onclick="switchTab('products')">
-                                <div class="shortcut-icon"><i class="ph ph-package"></i></div>
-                                <span>PRODUTOS</span>
+                            <button class="dashboard-shortcut teal" onclick="switchTab('estoque')">
+                                <div class="shortcut-icon"><i class="ph ph-warehouse"></i></div>
+                                <span>ESTOQUE</span>
                             </button>
                             <button class="dashboard-shortcut green" onclick="switchTab('subscription')">
                                 <div class="shortcut-icon"><i class="ph ph-crown"></i></div>
@@ -475,6 +494,9 @@
                                                 class="ph ph-credit-card"></i> Cartão</button>
                                         <button class="payment-btn" data-method="pix"><i
                                                 class="ph ph-device-mobile-camera"></i> PIX</button>
+                                        <button class="payment-btn" data-method="misto"
+                                            style="background: linear-gradient(45deg, #f59e0b, #d97706); border: none;"><i
+                                                class="ph ph-scales"></i> Misto</button>
                                     </div>
                                     <input type="hidden" id="payment-method" value="dinheiro">
 
@@ -551,355 +573,421 @@
                                         onclick="document.getElementById('pix-payment-area').style.display='none'">Fechar</button>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Products Tab (Split Screen) -->
-                        <div id="products-tab" class="tab-content">
-                            <div class="products-layout">
-                                <!-- Left Panel: Product Form -->
-                                <div class="products-form-panel">
-                                    <h2 id="product-form-title"><i class="ph ph-plus-circle"></i> Novo Produto</h2>
-                                    <form id="product-form">
-                                        <input type="hidden" id="product-id">
-
-                                        <div class="form-group">
-                                            <label>Código de Barras</label>
-                                            <div style="display: flex; gap: 0.5rem;">
-                                                <input type="text" id="product-barcode" required>
-                                                <button type="button" class="btn-secondary" onclick="generateBarcode()"
-                                                    title="Gerar Código">
-                                                    <i class="ph ph-barcode"></i>
-                                                </button>
-                                            </div>
+                            <!-- Split Payment Modal -->
+                            <div id="split-payment-modal" class="modal-overlay" style="display: none;">
+                                <div class="modal-content" style="max-width: 500px;">
+                                    <div class="modal-header">
+                                        <h2><i class="ph ph-coins"></i> Pagamento Misto</h2>
+                                        <button class="btn-close" onclick="closeSplitPaymentModal()">&times;</button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div style="margin-bottom: 1rem; text-align: center;">
+                                            <div style="font-size: 1.2rem;">Total da Venda</div>
+                                            <div id="split-total-amount"
+                                                style="font-size: 2rem; font-weight: bold; color: var(--text-primary);">
+                                                R$ 0,00</div>
                                         </div>
 
-                                        <div class="form-group">
-                                            <label>Nome do Produto</label>
-                                            <input type="text" id="product-name" required>
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label>Categoria</label>
-                                            <select id="product-category" required>
-                                                <option value="Geral">Geral</option>
-                                                <option value="Alimentos">Alimentos</option>
-                                                <option value="Bebidas">Bebidas</option>
-                                                <option value="Limpeza">Limpeza</option>
-                                                <option value="Higiene">Higiene</option>
-                                                <option value="Hortifruti">Hortifruti</option>
-                                                <option value="Padaria">Padaria</option>
-                                                <option value="Açougue">Açougue</option>
+                                        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                                            <select id="split-payment-method" class="form-input" style="flex: 1;">
+                                                <option value="dinheiro">Dinheiro</option>
+                                                <option value="cartao">Cartão</option>
+                                                <option value="pix">PIX</option>
                                             </select>
+                                            <input type="number" id="split-payment-amount" class="form-input"
+                                                placeholder="Valor" style="width: 120px;">
+                                            <button class="btn-primary" onclick="addSplitPayment()">Adicionar</button>
                                         </div>
 
-                                        <div class="form-row">
-                                            <div class="form-group">
-                                                <label>Preço (R$)</label>
-                                                <input type="number" id="product-price" step="0.01" min="0" required>
-                                            </div>
-                                            <div class="form-group">
-                                                <label>Estoque Inicial</label>
-                                                <input type="number" id="product-stock" min="0" required>
-                                            </div>
+                                        <div class="table-container"
+                                            style="max-height: 200px; overflow-y: auto; margin-bottom: 1rem;">
+                                            <table class="data-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Método</th>
+                                                        <th>Valor</th>
+                                                        <th></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="split-payments-list"></tbody>
+                                            </table>
                                         </div>
 
-                                        <div class="form-group">
-                                            <label>Imagem do Produto</label>
-                                            <input type="file" id="product-image" accept="image/*"
-                                                onchange="previewImage(this)">
-                                            <div id="image-preview-container" style="display: none; margin-top: 10px;">
-                                                <img id="image-preview" src="" alt="Preview"
-                                                    style="max-width: 100%; max-height: 200px; border-radius: 8px;">
-                                            </div>
+                                        <div
+                                            style="display: flex; justify-content: space-between; font-size: 1.1rem; font-weight: bold; margin-top: 1rem; border-top: 1px solid var(--border-glass); padding-top: 1rem;">
+                                            <span>Restante:</span>
+                                            <span id="split-remaining-amount" style="color: var(--danger);">R$
+                                                0,00</span>
                                         </div>
 
-                                        <div class="form-actions">
-                                            <button type="submit" class="btn-primary" style="width: 100%;">Salvar
-                                                Produto</button>
-                                            <button type="button" class="btn-secondary" onclick="resetProductForm()"
-                                                style="width: 100%; margin-top: 0.5rem;">Limpar / Novo</button>
+                                        <div id="split-change-display"
+                                            style="display: none; justify-content: space-between; font-size: 1.1rem; font-weight: bold; color: var(--success);">
+                                            <span>Troco:</span>
+                                            <span id="split-change-value">R$ 0,00</span>
                                         </div>
-                                    </form>
-                                </div>
-
-                                <!-- Right Panel: Product List -->
-                                <div class="products-list-panel">
-                                    <div class="list-header">
-                                        <h2><i class="ph ph-list"></i> Lista de Produtos</h2>
-                                        <button onclick="debugProducts()" class="btn-sm btn-warning"><i
-                                                class="ph ph-bug"></i> Debug</button>
                                     </div>
-                                    <div class="table-container">
-                                        <table class="data-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>Img</th>
-                                                    <th>Código</th>
-                                                    <th>Nome</th>
-                                                    <th>Cat.</th>
-                                                    <th>Preço</th>
-                                                    <th>Est.</th>
-                                                    <th>Ações</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="products-table-body"></tbody>
-                                        </table>
+                                    <div class="modal-footer">
+                                        <button class="btn-secondary"
+                                            onclick="closeSplitPaymentModal()">Cancelar</button>
+                                        <button id="btn-finalize-split" class="btn-primary"
+                                            onclick="finalizeSplitSale()" disabled>Finalizar Venda</button>
                                     </div>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Estoque Tab -->
-                        <div id="estoque-tab" class="tab-content">
-                            <h2><i class="ph ph-warehouse"></i> Controle de Estoque</h2>
+                    <!-- Products Tab (Split Screen) -->
+                    <div id="products-tab" class="tab-content">
+                        <div class="products-layout">
+                            <!-- Left Panel: Product Form -->
+                            <div class="products-form-panel">
+                                <h2 id="product-form-title"><i class="ph ph-plus-circle"></i> Novo Produto</h2>
+                                <form id="product-form">
+                                    <input type="hidden" id="product-id">
 
-                            <!-- Cards de Resumo -->
-                            <div class="dashboard-grid" style="margin-bottom: 2rem;">
-                                <div class="dashboard-card">
-                                    <div class="card-icon"><i class="ph ph-package"></i></div>
-                                    <div class="card-info">
-                                        <h3>Total em Estoque</h3>
-                                        <p id="total-stock-items" class="card-value">0</p>
+                                    <div class="form-group">
+                                        <label>Código de Barras</label>
+                                        <div style="display: flex; gap: 0.5rem;">
+                                            <input type="text" id="product-barcode" required>
+                                            <button type="button" class="btn-secondary" onclick="generateBarcode()"
+                                                title="Gerar Código">
+                                                <i class="ph ph-barcode"></i>
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
-                                <div class="dashboard-card warning">
-                                    <div class="card-icon"><i class="ph ph-warning"></i></div>
-                                    <div class="card-info">
-                                        <h3>Estoque Baixo</h3>
-                                        <p id="low-stock-products" class="card-value">0</p>
+
+                                    <div class="form-group">
+                                        <label>Nome do Produto</label>
+                                        <input type="text" id="product-name" required>
                                     </div>
-                                </div>
-                                <div class="dashboard-card danger">
-                                    <div class="card-icon"><i class="ph ph-prohibit"></i></div>
-                                    <div class="card-info">
-                                        <h3>Sem Estoque</h3>
-                                        <p id="out-of-stock-products" class="card-value">0</p>
+
+                                    <div class="form-group">
+                                        <label>Categoria</label>
+                                        <select id="product-category" required>
+                                            <option value="Geral">Geral</option>
+                                            <option value="Alimentos">Alimentos</option>
+                                            <option value="Bebidas">Bebidas</option>
+                                            <option value="Limpeza">Limpeza</option>
+                                            <option value="Higiene">Higiene</option>
+                                            <option value="Hortifruti">Hortifruti</option>
+                                            <option value="Padaria">Padaria</option>
+                                            <option value="Açougue">Açougue</option>
+                                        </select>
                                     </div>
-                                </div>
+
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label>Preço (R$)</label>
+                                            <input type="number" id="product-price" step="0.01" min="0" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Estoque Inicial</label>
+                                            <input type="number" id="product-stock" min="0" required>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Imagem do Produto</label>
+                                        <input type="file" id="product-image" accept="image/*"
+                                            onchange="previewImage(this)">
+                                        <div id="image-preview-container" style="display: none; margin-top: 10px;">
+                                            <img id="image-preview" src="" alt="Preview"
+                                                style="max-width: 100%; max-height: 200px; border-radius: 8px;">
+                                        </div>
+                                    </div>
+
+                                    <div class="form-actions">
+                                        <button type="submit" class="btn-primary" style="width: 100%;">Salvar
+                                            Produto</button>
+                                        <button type="button" class="btn-secondary" onclick="resetProductForm()"
+                                            style="width: 100%; margin-top: 0.5rem;">Limpar / Novo</button>
+                                    </div>
+                                </form>
                             </div>
 
-                            <!-- Botões de Ação -->
-                            <div class="tab-header">
-                                <h3><i class="ph ph-arrows-clockwise"></i> Movimentações de Estoque</h3>
+                            <!-- Right Panel: Product List -->
+                            <div class="products-list-panel">
+                                <div class="list-header">
+                                    <h2><i class="ph ph-list"></i> Lista de Produtos</h2>
+                                    <button onclick="debugProducts()" class="btn-sm btn-warning"><i
+                                            class="ph ph-bug"></i> Debug</button>
+                                </div>
+                                <div class="table-container">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Img</th>
+                                                <th>Código</th>
+                                                <th>Nome</th>
+                                                <th>Cat.</th>
+                                                <th>Preço</th>
+                                                <th>Est.</th>
+                                                <th>Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="products-table-body"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Estoque Tab -->
+                    <div id="estoque-tab" class="tab-content">
+                        <h2><i class="ph ph-warehouse"></i> Controle de Estoque</h2>
+
+                        <!-- Cards de Resumo -->
+                        <div class="dashboard-grid" style="margin-bottom: 2rem;">
+                            <div class="dashboard-card">
+                                <div class="card-icon"><i class="ph ph-package"></i></div>
+                                <div class="card-info">
+                                    <h3>Total em Estoque</h3>
+                                    <p id="total-stock-items" class="card-value">0</p>
+                                </div>
+                            </div>
+                            <div class="dashboard-card warning">
+                                <div class="card-icon"><i class="ph ph-warning"></i></div>
+                                <div class="card-info">
+                                    <h3>Estoque Baixo</h3>
+                                    <p id="low-stock-products" class="card-value">0</p>
+                                </div>
+                            </div>
+                            <div class="dashboard-card danger">
+                                <div class="card-icon"><i class="ph ph-prohibit"></i></div>
+                                <div class="card-info">
+                                    <h3>Sem Estoque</h3>
+                                    <p id="out-of-stock-products" class="card-value">0</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Botões de Ação -->
+                        <div class="tab-header">
+                            <h3><i class="ph ph-arrows-clockwise"></i> Movimentações de Estoque</h3>
+                            <div style="display: flex; gap: 1rem;">
+                                <input type="text" id="stock-search" placeholder="Buscar produto..."
+                                    style="padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-glass); background: rgba(255,255,255,0.05); color: white;">
                                 <button id="add-stock-movement-btn" class="btn-primary">+ Nova Movimentação</button>
                             </div>
-
-                            <!-- Tabela de Movimentações -->
-                            <div class="table-container">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Data</th>
-                                            <th>Produto</th>
-                                            <th>Tipo</th>
-                                            <th>Quantidade</th>
-                                            <th>Estoque Anterior</th>
-                                            <th>Estoque Atual</th>
-                                            <th>Motivo</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="stock-movements-table-body"></tbody>
-                                </table>
-                            </div>
                         </div>
 
-                        <!-- Sales Tab -->
-                        <div id="sales-tab" class="tab-content">
-                            <h2><i class="ph ph-trend-up"></i> Histórico de Vendas</h2>
+                        <!-- Tabela de Movimentações -->
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Data</th>
+                                        <th>Produto</th>
+                                        <th>Tipo</th>
+                                        <th>Quantidade</th>
+                                        <th>Estoque Anterior</th>
+                                        <th>Estoque Atual</th>
+                                        <th>Motivo</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="stock-movements-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Sales Tab -->
+                    <div id="sales-tab" class="tab-content">
+                        <h2><i class="ph ph-trend-up"></i> Histórico de Vendas</h2>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Data</th>
+                                        <th>Itens</th>
+                                        <th>Pagamento</th>
+                                        <th>Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="sales-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Boletos Tab -->
+                    <div id="boletos-tab" class="tab-content">
+                        <div class="tab-header">
+                            <h2><i class="ph ph-barcode"></i> Gerenciamento de Boletos</h2>
+                            <button id="add-boleto-btn" class="btn-primary">+ Novo Boleto</button>
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Descrição</th>
+                                        <th>Valor</th>
+                                        <th>Vencimento</th>
+                                        <th>Status</th>
+                                        <th>Dias Restantes</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="boletos-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Devedores Tab -->
+                    <div id="debtors-tab" class="tab-content">
+                        <div class="tab-header">
+                            <h2><i class="ph ph-users"></i> Devedores (Fiado)</h2>
+                            <button id="add-debtor-btn" class="btn-primary" onclick="openDebtorModal()">+ Novo
+                                Devedor</button>
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>CPF</th>
+                                        <th>Telefone</th>
+                                        <th>Dívida Atual</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="debtors-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Relatórios Tab -->
+                    <div id="reports-tab" class="tab-content">
+                        <h2><i class="ph ph-chart-line-up"></i> Relatórios</h2>
+                        <div class="dashboard-grid">
+                            <div class="dashboard-card">
+                                <div class="card-icon"><i class="ph ph-calendar-check"></i></div>
+                                <div class="card-info">
+                                    <h3>Vendas Hoje</h3>
+                                    <p id="report-sales-today" class="card-value">R$ 0,00</p>
+                                </div>
+                            </div>
+                            <div class="dashboard-card">
+                                <div class="card-icon"><i class="ph ph-calendar-plus"></i></div>
+                                <div class="card-info">
+                                    <h3>Vendas Mês</h3>
+                                    <p id="report-sales-month" class="card-value">R$ 0,00</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Financeiro Tab -->
+                    <div id="financial-tab" class="tab-content">
+                        <h2><i class="ph ph-bank"></i> Financeiro</h2>
+                        <div class="dashboard-grid">
+                            <div class="dashboard-card success">
+                                <div class="card-icon"><i class="ph ph-arrow-up"></i></div>
+                                <div class="card-info">
+                                    <h3>Receitas</h3>
+                                    <p id="fin-income" class="card-value">R$ 0,00</p>
+                                </div>
+                            </div>
+                            <div class="dashboard-card danger">
+                                <div class="card-icon"><i class="ph ph-arrow-down"></i></div>
+                                <div class="card-info">
+                                    <h3>Despesas</h3>
+                                    <p id="fin-expenses" class="card-value">R$ 0,00</p>
+                                </div>
+                            </div>
+                            <div class="dashboard-card">
+                                <div class="card-icon"><i class="ph ph-scales"></i></div>
+                                <div class="card-info">
+                                    <h3>Saldo</h3>
+                                    <p id="fin-balance" class="card-value">R$ 0,00</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Contabilidade Tab -->
+                    <div id="accounting-tab" class="tab-content">
+                        <h2><i class="ph ph-calculator"></i> Contabilidade</h2>
+                        <div class="tab-header">
+                            <h3>Livro Caixa</h3>
+                            <button class="btn-secondary"><i class="ph ph-download"></i> Exportar XML/CSV</button>
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Data</th>
+                                        <th>Descrição</th>
+                                        <th>Tipo</th>
+                                        <th>Valor</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="accounting-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Assinatura Tab -->
+                    <div id="subscription-tab" class="tab-content">
+                        <h2><i class="ph ph-crown"></i> Assinatura</h2>
+                        <div class="dashboard-card">
+                            <div class="card-icon"><i class="ph ph-check-circle"></i></div>
+                            <div class="card-info">
+                                <h3>Status da Assinatura</h3>
+                                <p id="sub-status" class="card-value">Ativo</p>
+                                <small id="sub-expires">Expira em: ...</small>
+                            </div>
+                        </div>
+                        <div style="margin-top: 1rem;">
+                            <button class="btn-primary" onclick="renewSubscription()">Renovar Assinatura
+                                (PIX)</button>
+                        </div>
+                    </div>
+
+                    <!-- Store Tab (Loja/Config) -->
+                    <div id="store-tab" class="tab-content">
+                        <h2><i class="ph ph-storefront"></i> Configurações da Loja</h2>
+                        <div class="auth-form" style="max-width: 100%; margin: 0;">
+                            <h3>Dados de Pagamento</h3>
+                            <div class="form-group">
+                                <label>Chave PIX (Assinatura)</label>
+                                <input type="text" value="62819358000106" readonly
+                                    style="background: rgba(0,0,0,0.3); color: var(--text-secondary);">
+                                <small style="color: var(--accent-orange);">* Esta chave não pode ser
+                                    alterada.</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Chave PIX (Recebimento Loja)</label>
+                                <input type="text" id="store-pix-key" placeholder="Sua chave PIX para receber vendas">
+                            </div>
+                            <button class="btn-primary" onclick="saveStoreConfig()">Salvar Configurações</button>
+                        </div>
+                    </div>
+
+                    <!-- Admin Tab -->
+                    <div id="admin-tab" class="tab-content">
+                        <h2><i class="ph ph-gear"></i> Administração</h2>
+                        <div class="admin-section">
+                            <h3><i class="ph ph-users"></i> Usuários Cadastrados</h3>
                             <div class="table-container">
                                 <table class="data-table">
                                     <thead>
                                         <tr>
                                             <th>ID</th>
-                                            <th>Data</th>
-                                            <th>Itens</th>
-                                            <th>Pagamento</th>
-                                            <th>Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="sales-table-body"></tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <!-- Boletos Tab -->
-                        <div id="boletos-tab" class="tab-content">
-                            <div class="tab-header">
-                                <h2><i class="ph ph-barcode"></i> Gerenciamento de Boletos</h2>
-                                <button id="add-boleto-btn" class="btn-primary">+ Novo Boleto</button>
-                            </div>
-                            <div class="table-container">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Descrição</th>
-                                            <th>Valor</th>
-                                            <th>Vencimento</th>
-                                            <th>Status</th>
-                                            <th>Dias Restantes</th>
-                                            <th>Ações</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="boletos-table-body"></tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <!-- Devedores Tab -->
-                        <div id="debtors-tab" class="tab-content">
-                            <div class="tab-header">
-                                <h2><i class="ph ph-users"></i> Devedores (Fiado)</h2>
-                                <button id="add-debtor-btn" class="btn-primary" onclick="openDebtorModal()">+ Novo
-                                    Devedor</button>
-                            </div>
-                            <div class="table-container">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
                                             <th>Nome</th>
-                                            <th>CPF</th>
-                                            <th>Telefone</th>
-                                            <th>Dívida Atual</th>
+                                            <th>Email</th>
+                                            <th>Tipo</th>
+                                            <th>Cadastro</th>
+                                            <th>Status Assinatura</th>
                                             <th>Ações</th>
                                         </tr>
                                     </thead>
-                                    <tbody id="debtors-table-body"></tbody>
+                                    <tbody id="admin-users-table-body"></tbody>
                                 </table>
                             </div>
                         </div>
-
-                        <!-- Relatórios Tab -->
-                        <div id="reports-tab" class="tab-content">
-                            <h2><i class="ph ph-chart-line-up"></i> Relatórios</h2>
-                            <div class="dashboard-grid">
-                                <div class="dashboard-card">
-                                    <div class="card-icon"><i class="ph ph-calendar-check"></i></div>
-                                    <div class="card-info">
-                                        <h3>Vendas Hoje</h3>
-                                        <p id="report-sales-today" class="card-value">R$ 0,00</p>
-                                    </div>
-                                </div>
-                                <div class="dashboard-card">
-                                    <div class="card-icon"><i class="ph ph-calendar-plus"></i></div>
-                                    <div class="card-info">
-                                        <h3>Vendas Mês</h3>
-                                        <p id="report-sales-month" class="card-value">R$ 0,00</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Financeiro Tab -->
-                        <div id="financial-tab" class="tab-content">
-                            <h2><i class="ph ph-bank"></i> Financeiro</h2>
-                            <div class="dashboard-grid">
-                                <div class="dashboard-card success">
-                                    <div class="card-icon"><i class="ph ph-arrow-up"></i></div>
-                                    <div class="card-info">
-                                        <h3>Receitas</h3>
-                                        <p id="fin-income" class="card-value">R$ 0,00</p>
-                                    </div>
-                                </div>
-                                <div class="dashboard-card danger">
-                                    <div class="card-icon"><i class="ph ph-arrow-down"></i></div>
-                                    <div class="card-info">
-                                        <h3>Despesas</h3>
-                                        <p id="fin-expenses" class="card-value">R$ 0,00</p>
-                                    </div>
-                                </div>
-                                <div class="dashboard-card">
-                                    <div class="card-icon"><i class="ph ph-scales"></i></div>
-                                    <div class="card-info">
-                                        <h3>Saldo</h3>
-                                        <p id="fin-balance" class="card-value">R$ 0,00</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Contabilidade Tab -->
-                        <div id="accounting-tab" class="tab-content">
-                            <h2><i class="ph ph-calculator"></i> Contabilidade</h2>
-                            <div class="tab-header">
-                                <h3>Livro Caixa</h3>
-                                <button class="btn-secondary"><i class="ph ph-download"></i> Exportar XML/CSV</button>
-                            </div>
-                            <div class="table-container">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Data</th>
-                                            <th>Descrição</th>
-                                            <th>Tipo</th>
-                                            <th>Valor</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="accounting-table-body"></tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <!-- Assinatura Tab -->
-                        <div id="subscription-tab" class="tab-content">
-                            <h2><i class="ph ph-crown"></i> Assinatura</h2>
-                            <div class="dashboard-card">
-                                <div class="card-icon"><i class="ph ph-check-circle"></i></div>
-                                <div class="card-info">
-                                    <h3>Status da Assinatura</h3>
-                                    <p id="sub-status" class="card-value">Ativo</p>
-                                    <small id="sub-expires">Expira em: ...</small>
-                                </div>
-                            </div>
-                            <div style="margin-top: 1rem;">
-                                <button class="btn-primary" onclick="renewSubscription()">Renovar Assinatura
-                                    (PIX)</button>
-                            </div>
-                        </div>
-
-                        <!-- Store Tab (Loja/Config) -->
-                        <div id="store-tab" class="tab-content">
-                            <h2><i class="ph ph-storefront"></i> Configurações da Loja</h2>
-                            <div class="auth-form" style="max-width: 100%; margin: 0;">
-                                <h3>Dados de Pagamento</h3>
-                                <div class="form-group">
-                                    <label>Chave PIX (Assinatura)</label>
-                                    <input type="text" value="62819358000106" readonly
-                                        style="background: rgba(0,0,0,0.3); color: var(--text-secondary);">
-                                    <small style="color: var(--accent-orange);">* Esta chave não pode ser
-                                        alterada.</small>
-                                </div>
-                                <div class="form-group">
-                                    <label>Chave PIX (Recebimento Loja)</label>
-                                    <input type="text" id="store-pix-key"
-                                        placeholder="Sua chave PIX para receber vendas">
-                                </div>
-                                <button class="btn-primary" onclick="saveStoreConfig()">Salvar Configurações</button>
-                            </div>
-                        </div>
-
-                        <!-- Admin Tab -->
-                        <div id="admin-tab" class="tab-content">
-                            <h2><i class="ph ph-gear"></i> Administração</h2>
-                            <div class="admin-section">
-                                <h3><i class="ph ph-users"></i> Usuários Cadastrados</h3>
-                                <div class="table-container">
-                                    <table class="data-table">
-                                        <thead>
-                                            <tr>
-                                                <th>ID</th>
-                                                <th>Nome</th>
-                                                <th>Email</th>
-                                                <th>Tipo</th>
-                                                <th>Cadastro</th>
-                                                <th>Status Assinatura</th>
-                                                <th>Ações</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="admin-users-table-body"></tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
+                    </div>
                 </main>
 
                 <!-- Bottom Navigation (Fixed) -->
@@ -1088,7 +1176,7 @@
 
     <script src="/login-fix.js?v=20251128_fix2"></script>
     <script src="/debug_products.js?v=20251128_debug"></script>
-    <script src="/app.js?v=20251130_debug_blue"></script>
+    <script src="/app.js?v=20251130_fix_finalize_v2"></script>
 </body>
 
 </html>

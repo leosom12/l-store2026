@@ -20,39 +20,6 @@ let pixTimerInterval = null;
 
 // ==================== INICIALIZAÇÃO ====================
 // ==================== INICIALIZAÇÃO ====================
-document.addEventListener('DOMContentLoaded', () => {
-    try {
-        // Verificar se há token salvo
-        const token = localStorage.getItem('authToken');
-        const userData = localStorage.getItem('userData');
-
-        if (token && userData) {
-            // Mostrar app
-            document.getElementById('auth-screen').style.display = 'none';
-            document.getElementById('app-screen').style.display = 'block';
-
-            // Carregar dados
-            loadDashboard();
-            loadProducts();
-            loadSales();
-            checkCashRegisterStatus(); // Check status on load
-        }
-
-        loadVersion();
-
-        // Event Listeners
-        setupEventListeners();
-        checkServerStatus();
-        setInterval(checkServerStatus, 30000); // Verificar servidor a cada 30s
-
-        // Start Clock
-        setInterval(updateClock, 1000);
-        updateClock();
-    } catch (error) {
-        console.error('Erro crítico na inicialização:', error);
-        alert('Erro ao iniciar sistema: ' + error.message);
-    }
-});
 
 function updateClock() {
     const now = new Date();
@@ -62,82 +29,7 @@ function updateClock() {
 }
 
 // ==================== EVENT LISTENERS ====================
-function setupEventListeners() {
-    // Navegação entre tabs
-    // Navegação entre tabs
-    document.querySelectorAll('.nav-item').forEach(tab => {
-        tab.addEventListener('click', () => switchTab(tab.dataset.tab));
-    });
 
-    // Logout
-    const logoutBtn = document.getElementById('logout-btn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', logout);
-    }
-
-    // Produtos
-    const addProductBtn = document.getElementById('add-product-btn');
-    if (addProductBtn) {
-        addProductBtn.addEventListener('click', () => openProductModal(null));
-    }
-
-    const productForm = document.getElementById('product-form');
-    if (productForm) {
-        productForm.addEventListener('submit', saveProduct);
-    }
-
-    // Caixa/PDV
-    const barcodeInput = document.getElementById('barcode-input');
-    if (barcodeInput) {
-        barcodeInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                scanProduct();
-            }
-        });
-    }
-
-    const finalizeSaleBtn = document.getElementById('finalize-sale');
-    if (finalizeSaleBtn) {
-        finalizeSaleBtn.addEventListener('click', finalizeSale);
-    }
-
-    const clearCartBtn = document.getElementById('clear-cart');
-    if (clearCartBtn) {
-        clearCartBtn.addEventListener('click', clearCart);
-    }
-
-    // Search Product by Name
-    const searchInput = document.getElementById('product-search-input');
-    if (searchInput) {
-        searchInput.addEventListener('input', handleProductSearch);
-        // Hide dropdown when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!searchInput.contains(e.target) && !document.getElementById('search-results-dropdown').contains(e.target)) {
-                document.getElementById('search-results-dropdown').style.display = 'none';
-            }
-        });
-    }
-
-    // Métodos de pagamento
-    document.querySelectorAll('.payment-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => selectPaymentMethod(btn.dataset.method, e));
-    });
-
-    // Change Calculation
-    const paidInput = document.getElementById('pos-paid-amount');
-    if (paidInput) {
-        paidInput.addEventListener('input', calculateChange);
-    }
-
-    // Shortcuts
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'F2') { e.preventDefault(); document.getElementById('barcode-input').focus(); }
-        if (e.key === 'F7') { e.preventDefault(); finalizeSale(); }
-        if (e.key === 'F6') { e.preventDefault(); /* Cancel Item Logic */ }
-        if (e.key === 'F11') { e.preventDefault(); clearCart(); }
-    });
-}
 
 function calculateChange() {
     const totalText = document.getElementById('cart-total').textContent.replace('R$', '').replace('.', '').replace(',', '.').trim();
@@ -149,6 +41,18 @@ function calculateChange() {
     if (changeElement) {
         changeElement.textContent = change > 0 ? formatCurrency(change) : 'R$ 0,00';
         changeElement.style.color = change >= 0 ? '#059669' : '#dc2626';
+    }
+
+    // Auto-finalizar venda quando valor pago >= total
+    // Somente se houver itens no carrinho e método de pagamento for dinheiro
+    const paymentMethod = document.getElementById('payment-method').value;
+
+    if (paid >= total && total > 0 && cart.length > 0 && paymentMethod === 'dinheiro') {
+        // Pequeno delay para evitar múltiplas chamadas
+        clearTimeout(window.autoFinalizeTimeout);
+        window.autoFinalizeTimeout = setTimeout(() => {
+            finalizeSale();
+        }, 500);
     }
 }
 
@@ -188,28 +92,57 @@ function checkServerStatus() {
 }
 
 // ==================== NAVEGAÇÃO ====================
+// ==================== NAVEGAÇÃO ====================
 function switchTab(tabName) {
-    console.log('DEBUG: switchTab called with', tabName);
-    // Remover active de todas as tabs
-    document.querySelectorAll('.nav-item').forEach(tab => tab.classList.remove('active-green'));
-    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    currentTab = tabName;
 
-    // Adicionar active na tab selecionada
-    const navTab = document.querySelector(`.nav-item[data-tab="${tabName}"]`);
-    if (navTab) navTab.classList.add('active-green');
+    // Esconder todas as tabs
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
 
-    const contentTab = document.getElementById(`${tabName}-tab`);
-    if (contentTab) contentTab.classList.add('active');
+    // Remover active de todos os botões de navegação
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active-green');
+    });
 
-    // Load data for specific tabs
+    // Mostrar tab selecionada
+    const selectedTab = document.getElementById(`${tabName}-tab`);
+    if (selectedTab) {
+        selectedTab.classList.add('active');
+    }
+
+    // Adicionar active no botão selecionado
+    const selectedBtn = document.querySelector(`.nav-item[data-tab="${tabName}"]`);
+    if (selectedBtn) {
+        selectedBtn.classList.add('active-green');
+    }
+
+    // Atualizar Título da Página
+    const titles = {
+        'dashboard': 'Visão Geral',
+        'caixa': 'Frente de Caixa',
+        'products': 'Gerenciar Produtos',
+        'sales': 'Histórico de Vendas',
+        'reports': 'Relatórios',
+        'financial': 'Financeiro',
+        'boletos': 'Boletos',
+        'debtors': 'Devedores',
+        'store': 'Configuração da Loja',
+        'subscription': 'Assinatura',
+        'accounting': 'Contabilidade',
+        'estoque': 'Controle de Estoque'
+    };
+    const pageTitle = document.getElementById('page-title');
+    if (pageTitle) pageTitle.textContent = titles[tabName] || 'L-STORE';
+
+    // Carregar dados específicos da tab
     if (tabName === 'dashboard') loadDashboard();
     if (tabName === 'products') loadProducts();
     if (tabName === 'sales') loadSales();
     if (tabName === 'debtors') loadDebtors();
     if (tabName === 'reports') loadReports();
     if (tabName === 'financial') loadFinancial();
-    if (tabName === 'accounting') loadAccounting();
-    if (tabName === 'subscription') loadSubscription();
     if (tabName === 'boletos') loadBoletos();
     if (tabName === 'store') loadStoreConfig();
     if (tabName === 'estoque') {
@@ -363,7 +296,8 @@ document.getElementById('pay-debt-form')?.addEventListener('submit', function (e
             } else {
                 alert('Erro: ' + data.error);
             }
-        });
+        })
+        .catch(err => console.error('Erro ao pagar dívida:', err));
 });
 
 // ==================== LOGOUT ====================
@@ -381,8 +315,8 @@ function logout() {
 function showClientLogin() {
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('client-login-screen').style.display = 'flex';
-    // By default, show registration form
-    showClientRegisterForm();
+    // Show login form directly
+    document.getElementById('client-login-form').style.display = 'block';
 }
 
 function backToMainLogin() {
@@ -390,100 +324,6 @@ function backToMainLogin() {
     document.getElementById('auth-screen').style.display = 'flex';
 }
 
-function showClientRegisterForm() {
-    document.getElementById('client-register-form').style.display = 'block';
-    document.getElementById('client-login-form').style.display = 'none';
-}
-
-function showClientLoginForm() {
-    document.getElementById('client-register-form').style.display = 'none';
-    document.getElementById('client-login-form').style.display = 'block';
-}
-
-function registerClient(e) {
-    e.preventDefault();
-    const name = document.getElementById('client-register-name').value;
-    const pin = document.getElementById('client-register-pin').value;
-    const pinConfirm = document.getElementById('client-register-pin-confirm').value;
-
-    // Validate PIN match
-    if (pin !== pinConfirm) {
-        alert('❌ Os PINs não coincidem. Por favor, tente novamente.');
-        return;
-    }
-
-    // Validate PIN format
-    if (!/^\d{4}$/.test(pin)) {
-        alert('❌ O PIN deve ter exatamente 4 dígitos numéricos.');
-        return;
-    }
-
-    let token = localStorage.getItem('authToken');
-
-    // If no token, auto-login as admin to register client
-    if (!token) {
-        fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                email: 'djleocv.hotmail.com@gmail.com',
-                password: 'admin123'
-            })
-        })
-            .then(response => response.json())
-            .then(adminData => {
-                if (adminData.token) {
-                    token = adminData.token;
-                    // Temporarily store for registration
-                    localStorage.setItem('tempAuthToken', token);
-                    // Now register client
-                    doClientRegistration(name, pin, token);
-                } else {
-                    alert('❌ Erro ao autenticar. Entre em contato com o administrador.');
-                }
-            })
-            .catch(err => {
-                console.error('Erro ao autenticar:', err);
-                alert('❌ Erro ao conectar com o servidor');
-            });
-    } else {
-        doClientRegistration(name, pin, token);
-    }
-}
-
-function doClientRegistration(name, pin, token) {
-    fetch('/api/clients/register', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ name, pin })
-    })
-        .then(response => response.json())
-        .then(data => {
-            if (data.clientId) {
-                alert(`✅ Cliente cadastrado com sucesso!\\n\\nNome: ${name}\\nPIN: ${pin}\\n\\nGuarde seu PIN para acessar novamente.`);
-                // Clear form
-                document.getElementById('client-register-name').value = '';
-                document.getElementById('client-register-pin').value = '';
-                document.getElementById('client-register-pin-confirm').value = '';
-                // Switch to login form
-                showClientLoginForm();
-
-                // If a temporary token was used, remove it
-                if (localStorage.getItem('tempAuthToken')) {
-                    localStorage.removeItem('tempAuthToken');
-                }
-            } else {
-                alert('❌ ' + (data.error || 'Erro ao cadastrar cliente'));
-            }
-        })
-        .catch(error => {
-            console.error('Erro:', error);
-            alert('❌ Erro ao conectar com o servidor');
-        });
-}
 
 
 function loginClient(e) {
@@ -499,7 +339,7 @@ function loginClient(e) {
         try {
             storeEmail = JSON.parse(userData).email;
         } catch (err) {
-            console.log('Using default store email');
+            // Using default store email
         }
     }
 
@@ -523,7 +363,7 @@ function loginClient(e) {
                 // Redirect to client store
                 showClientStore();
             } else {
-                alert('❌ ' + (data.error || 'Nome ou PIN incorretos'));
+                alert('❌ ' + (data.error || 'Nome da Loja ou PIN incorretos'));
             }
         })
         .catch(error => {
@@ -556,21 +396,51 @@ function showClientStore() {
     updateCartCount();
 }
 
-function loadStoreProducts() {
-    const userData = localStorage.getItem('userData');
-    if (!userData) return;
+let storeProducts = []; // Cache for client store search
 
-    const user = JSON.parse(userData);
-    const token = localStorage.getItem('authToken');
+function loadStoreProducts() {
+    // Try to get client token first
+    let token = localStorage.getItem('clientToken');
+
+    // If no client token, try admin token (for testing/admin view)
+    if (!token) {
+        token = localStorage.getItem('authToken');
+    }
+
+    if (!token) {
+        console.error('No token found for store products');
+        return;
+    }
 
     fetch('/api/products', {
         headers: { 'Authorization': `Bearer ${token}` }
     })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error('Erro ao carregar produtos');
+            return response.json();
+        })
         .then(products => {
+            storeProducts = products; // Save for search
             renderStoreProducts(products);
         })
         .catch(err => console.error('Erro ao carregar produtos:', err));
+}
+
+function handleStoreSearch(e) {
+    const query = e.target.value.toLowerCase().trim();
+
+    if (!query) {
+        renderStoreProducts(storeProducts);
+        return;
+    }
+
+    const filtered = storeProducts.filter(p =>
+        p.name.toLowerCase().includes(query) ||
+        (p.barcode && p.barcode.includes(query)) ||
+        (p.category && p.category.toLowerCase().includes(query))
+    );
+
+    renderStoreProducts(filtered);
 }
 
 function renderStoreProducts(products) {
@@ -587,8 +457,13 @@ function renderStoreProducts(products) {
     products.forEach(product => {
         const card = document.createElement('div');
         card.className = 'product-card';
+        // Add click event to open details
+        card.onclick = (e) => {
+            // Prevent opening if clicking the add button directly
+            if (e.target.closest('.btn-add-cart')) return;
+            openProductDetails(product);
+        };
 
-        const imageUrl = product.image || '/uploads/default-product.png';
         const isOutOfStock = product.stock <= 0;
 
         card.innerHTML = `
@@ -596,9 +471,13 @@ function renderStoreProducts(products) {
                 `<img src="${product.image}" alt="${product.name}" class="product-image">` :
                 `<div class="product-image" style="display: flex; align-items: center; justify-content: center; font-size: 3rem;">${product.icon || '📦'}</div>`
             }
+            <div class="store-badge">L-Store</div>
             <div class="product-info">
                 <div class="product-name">${product.name}</div>
-                <div class="product-price">R$ ${parseFloat(product.price).toFixed(2)}</div>
+                <div class="product-price-row">
+                    <div class="product-price">R$ ${parseFloat(product.price).toFixed(2)}</div>
+                    <span class="owner-name">${product.ownerName || 'Loja'}</span>
+                </div>
                 <div class="product-actions">
                     <span class="product-stock">${isOutOfStock ? 'Esgotado' : `${product.stock} disponíveis`}</span>
                     <button class="btn-add-cart" onclick="addToClientCart(${product.id})" ${isOutOfStock ? 'disabled' : ''}>
@@ -612,8 +491,54 @@ function renderStoreProducts(products) {
     });
 }
 
+function openProductDetails(product) {
+    const modal = document.getElementById('product-details-modal');
+    if (!modal) return;
+
+    document.getElementById('detail-product-name').textContent = product.name;
+    document.getElementById('detail-product-price').textContent = `R$ ${parseFloat(product.price).toFixed(2)}`;
+    document.getElementById('detail-product-category').textContent = product.category || 'Geral';
+    document.getElementById('detail-product-stock').textContent = product.stock <= 0 ? 'Esgotado' : `${product.stock} unidades disponíveis`;
+
+    const img = document.getElementById('detail-product-image');
+    const placeholder = document.getElementById('detail-image-placeholder');
+
+    if (product.image) {
+        img.src = product.image;
+        img.style.display = 'block';
+        placeholder.style.display = 'none';
+    } else {
+        img.style.display = 'none';
+        placeholder.style.display = 'block';
+        placeholder.textContent = product.icon || '📦';
+    }
+
+    // Setup Add Button
+    const addBtn = document.getElementById('detail-add-btn');
+    addBtn.onclick = () => {
+        addToClientCart(product.id);
+        closeProductDetailsModal();
+    };
+    addBtn.disabled = product.stock <= 0;
+    addBtn.style.opacity = product.stock <= 0 ? '0.5' : '1';
+
+    modal.style.display = 'flex';
+}
+
+function closeProductDetailsModal() {
+    const modal = document.getElementById('product-details-modal');
+    if (modal) modal.style.display = 'none';
+}
+
 function addToClientCart(productId) {
-    const token = localStorage.getItem('authToken');
+    // Try to get client token first
+    let token = localStorage.getItem('clientToken');
+    if (!token) token = localStorage.getItem('authToken');
+
+    if (!token) {
+        alert('Erro: Você precisa estar logado.');
+        return;
+    }
 
     fetch('/api/products', {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -762,12 +687,60 @@ function checkoutCart() {
 
     const clientData = localStorage.getItem('clientData');
     const clientToken = localStorage.getItem('clientToken');
+    const paymentMethod = document.getElementById('client-payment-method').value;
 
     if (!clientData || !clientToken) {
         alert('❌ Erro: Faça login novamente');
         return;
     }
 
+    if (paymentMethod === 'pix') {
+        showClientPixModal();
+        return;
+    }
+
+    processClientOrder(paymentMethod);
+}
+
+function showClientPixModal() {
+    const modal = document.getElementById('client-pix-modal');
+    if (!modal) return;
+
+    // Get store PIX key (or use default)
+    let pixKey = '62819358000106'; // Default fallback
+    if (window.storeConfig && window.storeConfig.storePixKey) {
+        pixKey = window.storeConfig.storePixKey;
+    }
+
+    document.getElementById('client-pix-key-display').textContent = pixKey;
+
+    // Generate QR Code
+    const total = clientCart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+    // Generate Valid PIX Payload with CRC16
+    const payload = generatePixPayload(pixKey, 'L-STORE CLIENTE', 'BRASILIA', total);
+
+    const qrContainer = document.getElementById('client-pix-qr');
+    qrContainer.innerHTML = `
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(payload)}" alt="QR Code PIX">
+        <p style="margin-top: 0.5rem; font-weight: bold;">Valor: R$ ${total.toFixed(2)}</p>
+    `;
+
+    modal.style.display = 'flex';
+}
+
+function closeClientPixModal() {
+    document.getElementById('client-pix-modal').style.display = 'none';
+}
+
+function confirmClientPixPayment() {
+    closeClientPixModal();
+    processClientOrder('pix');
+}
+
+function processClientOrder(paymentMethod) {
+    const clientData = localStorage.getItem('clientData');
+    const clientToken = localStorage.getItem('clientToken');
     const client = JSON.parse(clientData);
     const total = clientCart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
@@ -781,13 +754,14 @@ function checkoutCart() {
         body: JSON.stringify({
             clientId: client.id,
             items: clientCart,
-            total: total
+            total: total,
+            paymentMethod: paymentMethod
         })
     })
         .then(response => response.json())
         .then(data => {
             if (data.orderId) {
-                alert(`✅ Pedido realizado com sucesso!\\n\\nPedido #${data.orderId}\\nTotal: R$ ${total.toFixed(2)}`);
+                alert(`✅ Pedido realizado com sucesso!\n\nPedido #${data.orderId}\nTotal: R$ ${total.toFixed(2)}\nPagamento: ${paymentMethod.toUpperCase()}`);
 
                 // Clear cart
                 clientCart = [];
@@ -799,9 +773,9 @@ function checkoutCart() {
                 alert('❌ ' + (data.error || 'Erro ao finalizar pedido'));
             }
         })
-        .catch(error => {
-            console.error('Erro:', error);
-            alert('❌ Erro ao processar pedido');
+        .catch(err => {
+            console.error('Erro:', err);
+            alert('❌ Erro ao conectar com o servidor');
         });
 }
 
@@ -895,6 +869,26 @@ function logoutClient() {
 // ==================== DASHBOARD ====================
 function loadDashboard() {
     const token = localStorage.getItem('authToken');
+    const userData = localStorage.getItem('userData');
+
+    if (userData) {
+        try {
+            const user = JSON.parse(userData);
+            const headerUsername = document.getElementById('header-username');
+            const headerPin = document.getElementById('header-user-pin');
+
+            if (headerUsername) {
+                headerUsername.textContent = user.username || 'Usuário';
+            }
+
+            if (headerPin && user.pin) {
+                headerPin.textContent = `PIN: ${user.pin}`;
+                headerPin.style.display = 'inline-block';
+            }
+        } catch (e) {
+            console.error('Error parsing user data:', e);
+        }
+    }
 
     fetch('/api/dashboard', {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -924,6 +918,11 @@ function loadProducts() {
         .then(products => {
             allProducts = products; // Store for search
             const tbody = document.getElementById('products-table-body');
+
+            if (!tbody) {
+                return;
+            }
+
             tbody.innerHTML = '';
 
             if (!Array.isArray(products) || products.length === 0) {
@@ -931,7 +930,7 @@ function loadProducts() {
                 return;
             }
 
-            products.forEach(product => {
+            products.forEach((product, index) => {
                 const tr = document.createElement('tr');
                 let imageHtml = `<span style="font-size: 1.5rem;">${product.icon || '📦'}</span>`;
                 if (product.image) {
@@ -954,9 +953,12 @@ function loadProducts() {
             });
         })
         .catch(error => {
-            console.error('Erro ao carregar produtos:', error);
+            console.error('❌ ERRO ao carregar produtos:', error);
+            alert('ERRO ao carregar produtos: ' + error.message);
             const tbody = document.getElementById('products-table-body');
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--danger);">Erro ao carregar produtos. Tente recarregar a página.</td></tr>';
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--danger);">Erro ao carregar produtos. Tente recarregar a página.</td></tr>';
+            }
         });
 }
 
@@ -1248,7 +1250,6 @@ function addToCart(product) {
             quantity: 1,
             maxStock: product.stock
         });
-        console.log('DEBUG: Added to cart:', cart[cart.length - 1]);
     }
 
 
@@ -1374,14 +1375,187 @@ function selectPaymentMethod(method, event) {
         pixArea.style.display = 'none';
         if (pixTimerInterval) clearInterval(pixTimerInterval);
     }
+
+    // Lógica Misto
+    if (method === 'misto') {
+        openSplitPaymentModal();
+    }
+}
+
+// ==================== PAGAMENTO MISTO ====================
+let splitPayments = [];
+
+function openSplitPaymentModal() {
+    if (cart.length === 0) {
+        alert('⚠️ Carrinho vazio!');
+        return;
+    }
+
+    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    document.getElementById('split-total-amount').textContent = formatCurrency(total);
+
+    splitPayments = [];
+    updateSplitPaymentDisplay();
+
+    document.getElementById('split-payment-modal').style.display = 'flex';
+    document.getElementById('split-payment-amount').focus();
+}
+
+function closeSplitPaymentModal() {
+    document.getElementById('split-payment-modal').style.display = 'none';
+}
+
+function addSplitPayment() {
+    const method = document.getElementById('split-payment-method').value;
+    const amountInput = document.getElementById('split-payment-amount');
+    const amount = parseFloat(amountInput.value);
+
+    if (isNaN(amount) || amount <= 0) {
+        alert('Valor inválido');
+        return;
+    }
+
+    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const currentPaid = splitPayments.reduce((sum, p) => sum + p.amount, 0);
+    const remaining = total - currentPaid;
+
+    // Permitir adicionar mais que o restante apenas se for dinheiro (para troco)
+    if (method !== 'dinheiro' && amount > remaining) {
+        alert(`Valor excede o restante (${formatCurrency(remaining)})`);
+        return;
+    }
+
+    splitPayments.push({ method, amount });
+    amountInput.value = '';
+    updateSplitPaymentDisplay();
+}
+
+function updateSplitPaymentDisplay() {
+    const list = document.getElementById('split-payments-list');
+    list.innerHTML = '';
+
+    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    let paid = 0;
+
+    splitPayments.forEach((p, index) => {
+        paid += p.amount;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${p.method.toUpperCase()}</td>
+            <td>${formatCurrency(p.amount)}</td>
+            <td><button class="btn-icon" onclick="removeSplitPayment(${index})" style="color: var(--danger);">🗑️</button></td>
+        `;
+        list.appendChild(tr);
+    });
+
+    const remaining = total - paid;
+    const remainingEl = document.getElementById('split-remaining-amount');
+    const changeEl = document.getElementById('split-change-display');
+    const finalizeBtn = document.getElementById('btn-finalize-split');
+
+    if (remaining > 0) {
+        remainingEl.textContent = formatCurrency(remaining);
+        remainingEl.style.color = 'var(--danger)';
+        changeEl.style.display = 'none';
+        finalizeBtn.disabled = true;
+    } else {
+        remainingEl.textContent = 'R$ 0,00';
+        remainingEl.style.color = 'var(--success)';
+        finalizeBtn.disabled = false;
+
+        if (remaining < 0) {
+            changeEl.style.display = 'flex';
+            document.getElementById('split-change-value').textContent = formatCurrency(Math.abs(remaining));
+        } else {
+            changeEl.style.display = 'none';
+        }
+    }
+}
+
+function removeSplitPayment(index) {
+    splitPayments.splice(index, 1);
+    updateSplitPaymentDisplay();
+}
+
+function finalizeSplitSale() {
+    const finalizeBtn = document.getElementById('btn-finalize-split');
+    finalizeBtn.textContent = 'Processando...';
+    finalizeBtn.disabled = true;
+
+    const token = localStorage.getItem('authToken');
+    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+    const saleData = {
+        items: cart.map(item => ({
+            productId: item.id,
+            quantity: item.quantity,
+            price: item.price
+        })),
+        paymentMethod: 'misto',
+        total: total,
+        payments: splitPayments // Send split payments array
+    };
+
+    fetch('/api/sales', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(saleData)
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.id) {
+                // Calculate total change if any
+                const totalPaid = splitPayments.reduce((sum, p) => sum + p.amount, 0);
+                const change = totalPaid - total;
+
+                let msg = `✅ Venda Mista Finalizada!\nTotal: ${formatCurrency(total)}`;
+                if (change > 0) {
+                    msg += `\nTroco: ${formatCurrency(change)}`;
+                }
+
+                alert(msg);
+
+                closeSplitPaymentModal();
+                cart = [];
+                updateCartDisplay();
+                loadDashboard();
+                loadProducts();
+
+                // Reset to default payment method
+                selectPaymentMethod('dinheiro');
+            } else {
+                alert('Erro: ' + (data.error || 'Falha ao finalizar'));
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Erro ao finalizar venda mista');
+        })
+        .finally(() => {
+            finalizeBtn.textContent = 'Finalizar Venda';
+            finalizeBtn.disabled = false;
+        });
 }
 
 function generatePixQr() {
     const qrContainer = document.getElementById('pix-qr-container');
-    // Simulação de QR Code (em produção usaria uma lib como qrcode.js)
+
+    let pixKey = '62819358000106'; // Default fallback
+    if (window.storeConfig && window.storeConfig.storePixKey) {
+        pixKey = window.storeConfig.storePixKey;
+    }
+
+    // Generate Valid PIX Payload with CRC16
+    const total = parseFloat(document.getElementById('cart-total').textContent.replace('R$ ', '').replace('.', '').replace(',', '.'));
+    const payload = generatePixPayload(pixKey, 'L-STORE', 'BRASILIA', total || 0);
+
     qrContainer.innerHTML = `
         <div style="background: white; padding: 10px; border-radius: 8px;">
-            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=00020126360014BR.GOV.BCB.PIX0114628193580001065204000053039865802BR5913SUPERMERCADO6008BRASILIA62070503***6304${Math.floor(Math.random() * 9999)}" alt="QR Code PIX">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(payload)}" alt="QR Code PIX">
+            <p style="margin-top: 10px; font-weight: bold; color: #333;">Chave: ${pixKey}</p>
         </div>
     `;
 
@@ -1413,6 +1587,59 @@ function finalizeSale() {
     }
 
     const paymentMethod = document.getElementById('payment-method').value;
+    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+    // Lógica de Troco para Dinheiro
+    if (paymentMethod === 'dinheiro') {
+        let paidAmount = parseFloat(document.getElementById('pos-paid-amount').value) || 0;
+
+        // Se o valor pago for menor que o total, pedir o valor
+        if (paidAmount < total) {
+            const input = prompt(`Total: ${formatCurrency(total)}\n\nDigite o valor recebido:`);
+            if (input === null) return; // Cancelado pelo usuário
+
+            paidAmount = parseFloat(input.replace(',', '.'));
+            if (isNaN(paidAmount) || paidAmount < total) {
+                alert('❌ Valor inválido ou insuficiente!');
+                return;
+            }
+
+            // Atualizar input e calcular troco
+            document.getElementById('pos-paid-amount').value = paidAmount;
+            calculateChange();
+        }
+
+        // Mostrar feedback e aguardar 3 segundos
+        const change = paidAmount - total;
+        const finalizeBtn = document.getElementById('finalize-sale');
+        const originalText = finalizeBtn ? finalizeBtn.textContent : 'F7 Finalizar';
+
+        if (finalizeBtn) {
+            finalizeBtn.textContent = `Troco: ${formatCurrency(change)} - Finalizando em 3s...`;
+            finalizeBtn.disabled = true;
+            finalizeBtn.style.backgroundColor = 'var(--warning)';
+        }
+
+        // Delay de 3 segundos antes de processar
+        setTimeout(() => {
+            processSaleFinalization(originalText);
+        }, 3000);
+
+    } else {
+        // Para outros métodos, finaliza direto (ou com pequeno delay visual se quiser)
+        processSaleFinalization();
+    }
+}
+
+function processSaleFinalization(originalBtnText = 'F7 Finalizar') {
+    const finalizeBtn = document.getElementById('finalize-sale');
+    if (finalizeBtn) {
+        finalizeBtn.textContent = '⏳ Processando...';
+        finalizeBtn.disabled = true;
+        finalizeBtn.style.backgroundColor = ''; // Reset color
+    }
+
+    const paymentMethod = document.getElementById('payment-method').value;
     const token = localStorage.getItem('authToken');
 
     const saleData = {
@@ -1433,18 +1660,42 @@ function finalizeSale() {
         },
         body: JSON.stringify(saleData)
     })
-        .then(response => response.json())
+        .then(response => {
+            if (response.status === 403) {
+                throw new Error('SESSION_EXPIRED');
+            }
+            return response.json();
+        })
         .then(data => {
-            if (data.id) {
-                alert(`✓ Venda finalizada!\nTotal: ${formatCurrency(data.total)}`);
+            if (data.id || data.orderId) {
+                // Sucesso
+                const totalFormatted = formatCurrency(data.total);
+
+                // Se foi dinheiro, mostrar troco no alert também
+                let msg = `✅ Venda finalizada!\nTotal: ${totalFormatted}`;
+                if (paymentMethod === 'dinheiro') {
+                    const paid = parseFloat(document.getElementById('pos-paid-amount').value) || 0;
+                    const change = paid - data.total;
+                    if (change > 0) {
+                        msg += `\nTroco: ${formatCurrency(change)}`;
+                    }
+                }
+
+                alert(msg);
+
+                // Limpar tudo
                 cart = [];
                 updateCartDisplay();
                 loadDashboard();
                 loadProducts();
 
+                // Limpar campos de pagamento
+                document.getElementById('pos-paid-amount').value = '';
+                document.getElementById('pos-change-value').textContent = 'R$ 0,00';
+
                 // Resetar PIX se necessário
                 if (paymentMethod === 'pix') {
-                    selectPaymentMethod('dinheiro'); // Volta para dinheiro
+                    selectPaymentMethod('dinheiro');
                 }
             } else {
                 alert(data.error || 'Erro ao finalizar venda');
@@ -1452,7 +1703,18 @@ function finalizeSale() {
         })
         .catch(error => {
             console.error('Erro:', error);
-            alert('Erro ao finalizar venda');
+            if (error.message === 'SESSION_EXPIRED') {
+                alert('⚠️ Sessão expirada! Por favor, faça login novamente.');
+                logout();
+            } else {
+                alert('Erro ao finalizar venda: ' + error.message);
+            }
+        })
+        .finally(() => {
+            if (finalizeBtn) {
+                finalizeBtn.textContent = originalBtnText;
+                finalizeBtn.disabled = false;
+            }
         });
 }
 
@@ -1471,11 +1733,22 @@ function loadSales() {
             sales.forEach(sale => {
                 const tr = document.createElement('tr');
                 const date = new Date(sale.createdAt);
+
+                let paymentDisplay = `${getPaymentMethodIcon(sale.paymentMethod)} ${sale.paymentMethod}`;
+
+                // If split payments exist, format them
+                if (sale.payments && sale.payments.length > 0) {
+                    const details = sale.payments.map(p =>
+                        `${getPaymentMethodIcon(p.method)} ${p.method.toUpperCase()}: ${formatCurrency(p.amount)}`
+                    ).join('<br>');
+                    paymentDisplay = `<div style="font-size: 0.85rem;">${details}</div>`;
+                }
+
                 tr.innerHTML = `
                     <td>#${sale.id}</td>
                     <td>${date.toLocaleDateString('pt-BR')} ${date.toLocaleTimeString('pt-BR')}</td>
-                    <td>${sale.items?.length || 0} itens</td>
-                    <td>${getPaymentMethodIcon(sale.paymentMethod)} ${sale.paymentMethod}</td>
+                    <td>${sale.items?.length || '?'} itens</td>
+                    <td>${paymentDisplay}</td>
                     <td><strong>${formatCurrency(sale.total)}</strong></td>
                 `;
                 tbody.appendChild(tr);
@@ -1488,7 +1761,8 @@ function getPaymentMethodIcon(method) {
     const icons = {
         'dinheiro': '💵',
         'cartao': '💳',
-        'pix': '📱'
+        'pix': '📱',
+        'misto': '⚖️'
     };
     return icons[method] || '💰';
 }
@@ -1525,6 +1799,116 @@ function loadDebtors() {
             });
         })
         .catch(error => console.error('Erro ao carregar devedores:', error));
+}
+
+// ==================== DASHBOARD & CAIXA ====================
+function loadDashboard() {
+    checkCashRegisterStatus();
+    // Aqui poderíamos carregar outros widgets se necessário
+}
+
+function checkCashRegisterStatus() {
+    const token = localStorage.getItem('authToken');
+    fetch('/api/cash-register/status', {
+        headers: { 'Authorization': `Bearer ${token}` }
+    })
+        .then(response => response.json())
+        .then(data => {
+            const statusCard = document.getElementById('cash-register-status-card');
+            const statusText = document.getElementById('cash-register-status-text');
+            const statusIcon = document.getElementById('cash-register-icon');
+            const balanceEl = document.getElementById('cash-register-balance');
+
+            if (data.status === 'open') {
+                statusCard.style.borderColor = 'var(--success)';
+                statusText.textContent = 'CAIXA ABERTO';
+                statusText.style.color = 'var(--success)';
+                statusIcon.style.color = 'var(--success)';
+                statusIcon.innerHTML = '<i class="ph ph-lock-open"></i>';
+
+                if (balanceEl) {
+                    balanceEl.style.display = 'block';
+                    balanceEl.textContent = `Início: ${formatCurrency(data.openingBalance)}`;
+                }
+            } else {
+                statusCard.style.borderColor = 'var(--danger)';
+                statusText.textContent = 'CAIXA FECHADO';
+                statusText.style.color = 'var(--danger)';
+                statusIcon.style.color = 'var(--danger)';
+                statusIcon.innerHTML = '<i class="ph ph-lock-key"></i>';
+
+                if (balanceEl) {
+                    balanceEl.style.display = 'none';
+                }
+            }
+        })
+        .catch(err => console.error('Erro ao verificar status do caixa:', err));
+}
+
+function handleCashRegisterClick() {
+    const statusText = document.getElementById('cash-register-status-text').textContent;
+    if (statusText === 'CAIXA ABERTO') {
+        if (confirm('Deseja fechar o caixa?')) {
+            closeCashRegister();
+        }
+    } else {
+        openCashRegister();
+    }
+}
+
+function openCashRegister() {
+    const input = prompt('Digite o valor de abertura do caixa (R$):', '0,00');
+    if (input === null) return;
+
+    const openingBalance = parseFloat(input.replace(',', '.'));
+    if (isNaN(openingBalance) || openingBalance < 0) {
+        alert('Valor inválido');
+        return;
+    }
+
+    const token = localStorage.getItem('authToken');
+    fetch('/api/cash-register/open', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ openingBalance })
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+            } else {
+                alert('✅ Caixa aberto com sucesso!');
+                checkCashRegisterStatus();
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Erro ao abrir caixa');
+        });
+}
+
+function closeCashRegister() {
+    const token = localStorage.getItem('authToken');
+    fetch('/api/cash-register/close', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+            } else {
+                alert(`✅ Caixa fechado!\n\nTotal Vendas: ${formatCurrency(data.totalSales)}\nSaldo Final: ${formatCurrency(data.closingBalance)}`);
+                checkCashRegisterStatus();
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Erro ao fechar caixa');
+        });
 }
 
 // ==================== RELATÓRIOS ====================
@@ -1731,39 +2115,7 @@ document.getElementById('cash-register-form')?.addEventListener('submit', functi
         });
 });
 
-function finalizeSale(saleData) {
-    const token = localStorage.getItem('authToken');
-    fetch('/api/sales', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(saleData)
-    })
-        .then(response => response.json())
-        .then(data => {
-            if (data.id || data.orderId) {
-                alert('✅ Venda realizada com sucesso!');
-                cart = [];
-                updateCart();
-                if (data.orderId) {
-                    // Client order
-                    loadClientOrders();
-                    switchTab('orders');
-                } else {
-                    // POS sale
-                    loadSales(); // Reload sales history
-                }
-            } else {
-                alert('❌ ' + (data.error || 'Erro ao finalizar venda'));
-            }
-        })
-        .catch(error => {
-            console.error('Erro ao finalizar venda:', error);
-            alert('Erro ao finalizar venda. Verifique se o caixa está aberto.');
-        });
-}
+
 
 // ==================== CONTABILIDADE ====================
 function loadAccounting() {
@@ -1969,8 +2321,8 @@ window.login = function (e) {
                 }
 
                 // Atualizar nome do usuário
-                const userInfo = document.getElementById('user-info');
-                if (userInfo) userInfo.textContent = user.username;
+                const headerUsername = document.getElementById('header-username');
+                if (headerUsername) headerUsername.textContent = user.username;
 
             } else {
                 alert(data.error || 'Erro ao fazer login');
@@ -1988,16 +2340,22 @@ window.register = function (e) {
     const cpf = document.getElementById('register-cpf').value;
     const email = document.getElementById('register-email').value;
     const password = document.getElementById('register-password').value;
+    const pin = document.getElementById('register-pin').value;
 
-    if (!username || !email || !password || !cpf) {
+    if (!username || !email || !password || !cpf || !pin) {
         alert('Por favor, preencha todos os campos.');
+        return;
+    }
+
+    if (pin.length !== 4) {
+        alert('O PIN deve ter exatamente 4 dígitos.');
         return;
     }
 
     fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password, cpf })
+        body: JSON.stringify({ username, email, password, cpf, pin })
     })
         .then(response => response.json())
         .then(data => {
@@ -2372,21 +2730,116 @@ document.getElementById('stock-movement-form')?.addEventListener('submit', funct
     })
         .then(response => response.json())
         .then(data => {
-            if (data.message || data.id) {
-                alert('✓ Movimentação registrada com sucesso!');
+            if (data.success) {
+                alert('Movimentação registrada com sucesso!');
                 closeStockMovementModal();
                 loadStockMovements();
-                loadProducts(); // Atualizar lista de produtos
+                loadStockSummary();
+                loadProducts(); // Atualiza lista de produtos
             } else {
-                alert(data.error || 'Erro ao registrar movimentação');
+                alert('Erro ao registrar movimentação: ' + data.message);
             }
         })
-        .catch(err => {
-            console.error('Erro:', err);
+        .catch(error => {
+            console.error('Erro:', error);
             alert('Erro ao registrar movimentação');
         });
 });
 
+// Carregar movimentações de estoque
+function loadStockMovements() {
+    const token = localStorage.getItem('authToken');
+    const searchTerm = document.getElementById('stock-search')?.value.toLowerCase() || '';
+
+    fetch('/api/stock-movements', {
+        headers: { 'Authorization': `Bearer ${token}` }
+    })
+        .then(response => response.json())
+        .then(movements => {
+            const tbody = document.getElementById('stock-movements-table-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const filteredMovements = movements.filter(m =>
+                m.product_name.toLowerCase().includes(searchTerm)
+            );
+
+            filteredMovements.forEach(movement => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                <td>${new Date(movement.created_at).toLocaleString()}</td>
+                <td>${movement.product_name}</td>
+                <td>
+                    <span class="badge ${movement.type === 'entrada' ? 'success' : (movement.type === 'saida' ? 'danger' : 'warning')}">
+                        ${movement.type === 'entrada' ? 'Entrada' : (movement.type === 'saida' ? 'Saída' : 'Ajuste')}
+                    </span>
+                </td>
+                <td>${movement.quantity}</td>
+                <td>${movement.previous_stock}</td>
+                <td>${movement.new_stock}</td>
+                <td>${movement.reason}</td>
+                <td>
+                    <button class="btn-icon danger" onclick="deleteStockMovement(${movement.id})" title="Excluir">
+                        <i class="ph ph-trash"></i>
+                    </button>
+                </td>
+            `;
+                tbody.appendChild(row);
+            });
+        })
+        .catch(error => console.error('Erro ao carregar movimentações:', error));
+}
+
+// Excluir movimentação de estoque
+function deleteStockMovement(id) {
+    if (!confirm('Tem certeza que deseja excluir esta movimentação? O estoque será revertido.')) return;
+
+    const token = localStorage.getItem('authToken');
+    fetch(`/api/stock-movements/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                alert('Movimentação excluída com sucesso!');
+                loadStockMovements();
+                loadStockSummary();
+                loadProducts();
+            } else {
+                alert('Erro ao excluir: ' + (data.error || 'Erro desconhecido'));
+            }
+        })
+        .catch(error => console.error('Erro:', error));
+}
+
+// Event listener para busca de estoque
+document.getElementById('stock-search')?.addEventListener('input', () => {
+    loadStockMovements();
+});
+
+// Carregar resumo de estoque
+function loadStockSummary() {
+    const token = localStorage.getItem('authToken');
+    fetch('/api/products', {
+        headers: { 'Authorization': `Bearer ${token}` }
+    })
+        .then(response => response.json())
+        .then(products => {
+            const totalItems = products.reduce((acc, p) => acc + p.stock, 0);
+            const lowStock = products.filter(p => p.stock > 0 && p.stock <= 5).length;
+            const outOfStock = products.filter(p => p.stock === 0).length;
+
+            const totalEl = document.getElementById('total-stock-items');
+            const lowEl = document.getElementById('low-stock-products');
+            const outEl = document.getElementById('out-of-stock-products');
+
+            if (totalEl) totalEl.textContent = totalItems;
+            if (lowEl) lowEl.textContent = lowStock;
+            if (outEl) outEl.textContent = outOfStock;
+        })
+        .catch(error => console.error('Erro ao carregar resumo de estoque:', error));
+}
 // Event listener para botão de nova movimentação
 document.getElementById('add-stock-movement-btn')?.addEventListener('click', openStockMovementModal);
 
@@ -2412,7 +2865,50 @@ function saveStoreConfig() {
     }
 }
 // ==================== EVENT LISTENERS ====================
-document.addEventListener('DOMContentLoaded', () => {
+// ==================== INITIALIZATION ====================
+function initApp() {
+    console.log('🚀 Inicializando app...');
+
+    // 1. Auto-Login & Initial Data
+    const token = localStorage.getItem('authToken');
+    const userData = localStorage.getItem('userData');
+
+    if (token && userData) {
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('app-screen').style.display = 'block';
+
+        loadDashboard();
+        loadProducts();
+        loadSales();
+        checkCashRegisterStatus();
+    }
+
+    // 2. System Info & Status
+    loadVersion();
+    checkServerStatus();
+    setInterval(checkServerStatus, 30000);
+
+    // 3. Clock
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // Navegação entre tabs
+    document.querySelectorAll('.nav-item').forEach(tab => {
+        tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+    });
+
+    // Logout
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', logout);
+    }
+
+    // Produtos
+    const addProductBtn = document.getElementById('add-product-btn');
+    if (addProductBtn) {
+        addProductBtn.addEventListener('click', () => openProductModal(null));
+    }
+
     // Barcode Input Enter Key
     const barcodeInput = document.getElementById('barcode-input');
     if (barcodeInput) {
@@ -2429,6 +2925,12 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.addEventListener('input', handleProductSearch);
     }
 
+    // Client Store Search Input
+    const storeSearchInput = document.getElementById('store-search-input');
+    if (storeSearchInput) {
+        storeSearchInput.addEventListener('input', handleStoreSearch);
+    }
+
     // Payment Method Buttons
     document.querySelectorAll('.payment-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -2439,8 +2941,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Finalize Sale Button
     const finalizeBtn = document.getElementById('finalize-sale');
+    console.log('🔍 Botão Finalizar encontrado?', finalizeBtn ? 'SIM' : 'NÃO');
     if (finalizeBtn) {
         finalizeBtn.addEventListener('click', finalizeSale);
+        console.log('✅ Event listener adicionado ao botão Finalizar');
     }
 
     // Clear Cart Button
@@ -2454,4 +2958,131 @@ document.addEventListener('DOMContentLoaded', () => {
     if (productForm) {
         productForm.addEventListener('submit', saveProduct);
     }
+
+    // Shortcuts
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'F2') { e.preventDefault(); document.getElementById('barcode-input')?.focus(); }
+        if (e.key === 'F7') { e.preventDefault(); finalizeSale(); }
+        if (e.key === 'F6') { e.preventDefault(); /* Cancel Item Logic */ }
+        if (e.key === 'F11') { e.preventDefault(); clearCart(); }
+    });
+}
+
+// ==================== PIX HELPER FUNCTIONS ====================
+function generateCRC16(payload) {
+    const polynomial = 0x1021;
+    let crc = 0xFFFF;
+
+    for (let i = 0; i < payload.length; i++) {
+        crc ^= (payload.charCodeAt(i) << 8);
+        for (let j = 0; j < 8; j++) {
+            if ((crc & 0x8000) !== 0) {
+                crc = (crc << 1) ^ polynomial;
+            } else {
+                crc = (crc << 1);
+            }
+        }
+    }
+
+    return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+}
+
+function generatePixPayload(key, name, city, amount, txId = '***') {
+    const formatField = (id, value) => {
+        const len = value.length.toString().padStart(2, '0');
+        return `${id}${len}${value}`;
+    };
+
+    const merchantAccount = formatField('00', 'BR.GOV.BCB.PIX') + formatField('01', key);
+    const merchantCategory = '0000'; // Not strictly required for static
+    const transactionCurrency = '986'; // BRL
+    const countryCode = 'BR';
+    const merchantName = name.substring(0, 25);
+    const merchantCity = city.substring(0, 15);
+
+    let payload =
+        '000201' +
+        formatField('26', merchantAccount) +
+        formatField('52', merchantCategory) +
+        formatField('53', transactionCurrency);
+
+    if (amount) {
+        payload += formatField('54', amount.toFixed(2));
+    }
+
+    payload +=
+        formatField('58', countryCode) +
+        formatField('59', merchantName) +
+        formatField('60', merchantCity) +
+        formatField('62', formatField('05', txId)) +
+        '6304';
+
+    const crc = generateCRC16(payload);
+    return payload + crc;
+}
+
+// ==================== STORE CONFIG ====================
+function saveStoreConfig() {
+    const token = localStorage.getItem('authToken');
+    const storePixKey = document.getElementById('store-pix-key').value;
+
+    if (!storePixKey) {
+        alert('Por favor, informe a chave PIX.');
+        return;
+    }
+
+    fetch('/api/config', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ storePixKey })
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                alert('✅ ' + data.message);
+                // Update global config if needed
+                if (!window.storeConfig) window.storeConfig = {};
+                window.storeConfig.storePixKey = storePixKey;
+            } else {
+                alert('❌ ' + (data.error || 'Erro ao salvar configuração'));
+            }
+        })
+        .catch(err => {
+            console.error('Erro:', err);
+            alert('Erro ao salvar configuração');
+        });
+}
+
+function loadStoreConfig() {
+    const token = localStorage.getItem('authToken');
+    if (!token) return;
+
+    fetch('/api/config', {
+        headers: { 'Authorization': `Bearer ${token}` }
+    })
+        .then(response => response.json())
+        .then(config => {
+            if (config.storePixKey) {
+                const input = document.getElementById('store-pix-key');
+                if (input) input.value = config.storePixKey;
+
+                // Store globally for easy access
+                window.storeConfig = config;
+            }
+        })
+        .catch(err => console.error('Erro ao carregar configurações:', err));
+}
+
+// Call loadStoreConfig on startup
+document.addEventListener('DOMContentLoaded', () => {
+    loadStoreConfig();
 });
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initApp);
+} else {
+    initApp();
+}
