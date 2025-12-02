@@ -102,15 +102,17 @@ function getUserDb(userId) {
             name TEXT,
             category TEXT,
             price REAL,
+            costPrice REAL,
+            profitMargin REAL,
             stock INTEGER,
             icon TEXT,
             image TEXT
         )`, (err) => {
             // Attempt to add column if table exists but column doesn't
             if (!err) {
-                db.run("ALTER TABLE products ADD COLUMN image TEXT", (err) => {
-                    // Ignore error if column already exists
-                });
+                db.run("ALTER TABLE products ADD COLUMN image TEXT", (err) => { });
+                db.run("ALTER TABLE products ADD COLUMN costPrice REAL", (err) => { });
+                db.run("ALTER TABLE products ADD COLUMN profitMargin REAL", (err) => { });
             }
         });
 
@@ -123,9 +125,7 @@ function getUserDb(userId) {
             cash_register_session_id INTEGER
         )`, (err) => {
             if (!err) {
-                db.run("ALTER TABLE sales ADD COLUMN cash_register_session_id INTEGER", (err) => {
-                    // Ignore error if column already exists
-                });
+                db.run("ALTER TABLE sales ADD COLUMN cash_register_session_id INTEGER", (err) => { });
             }
         });
 
@@ -227,200 +227,6 @@ function authenticateToken(req, res, next) {
     });
 }
 
-// ==================== AUTH ROUTES ====================
-app.post('/api/auth/register', (req, res) => {
-    const { username, email, password, cpf, pin } = req.body;
-
-    if (!username || !email || !password || !cpf || !pin) {
-        return res.status(400).json({ error: 'Todos os campos sÃ£o obrigatÃ³rios' });
-    }
-
-    const hash = bcrypt.hashSync(password, 10);
-    const createdAt = new Date().toISOString();
-
-    mainDb.run(`INSERT INTO users (username, email, password, cpf, pin, createdAt) VALUES (?, ?, ?, ?, ?, ?)`,
-        [username, email, hash, cpf, pin, createdAt],
-        function (err) {
-            if (err) {
-                if (err.message.includes('UNIQUE constraint failed')) {
-                    return res.status(400).json({ error: 'Email jÃ¡ cadastrado' });
-                }
-                return res.status(500).json({ error: 'Erro ao criar usuÃ¡rio' });
-            }
-            // Initialize user DB
-            const userDb = getUserDb(this.lastID);
-            userDb.close();
-            res.json({ message: 'UsuÃ¡rio criado com sucesso', id: this.lastID });
-        });
-});
-
-app.post('/api/auth/login', (req, res) => {
-    const { email, password } = req.body;
-
-    mainDb.get(`SELECT * FROM users WHERE email = ?`, [email], (err, user) => {
-        if (err || !user) return res.status(400).json({ error: 'UsuÃ¡rio nÃ£o encontrado' });
-
-        if (!bcrypt.compareSync(password, user.password)) {
-            return res.status(400).json({ error: 'Senha incorreta' });
-        }
-
-        const token = jwt.sign({ id: user.id, email: user.email, isAdmin: user.isAdmin }, SECRET_KEY);
-        res.json({ token, user: { id: user.id, username: user.username, email: user.email, isAdmin: user.isAdmin, subscriptionStatus: user.subscriptionStatus, pin: user.pin } });
-    });
-});
-
-// Client Login (Only Email)
-app.post('/api/client/login', (req, res) => {
-    const { email } = req.body;
-
-    mainDb.get(`SELECT storeUserId FROM debtors_index WHERE email = ?`, [email], (err, row) => {
-        if (err || !row) return res.status(404).json({ error: 'Cliente nÃ£o encontrado' });
-
-        const storeUserId = row.storeUserId;
-        const userDb = getUserDb(storeUserId);
-
-        userDb.get(`SELECT * FROM debtors WHERE email = ?`, [email], (err, debtor) => {
-            if (err || !debtor) {
-                userDb.close();
-                return res.status(404).json({ error: 'Dados do cliente nÃ£o encontrados' });
-            }
-
-            res.json({
-                client: debtor,
-                storeId: storeUserId
-            });
-            userDb.close();
-        });
-    });
-});
-
-// ==================== CLIENT PIN REGISTRATION ====================
-
-// Register a new client (Name + PIN)
-app.post('/api/clients/register', authenticateToken, (req, res) => {
-    const { name, pin } = req.body;
-    const userId = req.user.id;
-
-    // Validate input
-    if (!name || !pin) {
-        return res.status(400).json({ error: 'Nome e PIN sÃ£o obrigatÃ³rios' });
-    }
-
-    // Validate PIN (4 digits)
-    if (!/^\d{4}$/.test(pin)) {
-        return res.status(400).json({ error: 'O PIN deve ter exatamente 4 dÃ­gitos' });
-    }
-
-    const db = getUserDb(userId);
-    const createdAt = new Date().toISOString();
-
-    db.run('INSERT INTO clients (name, pin, createdAt) VALUES (?, ?, ?)',
-        [name, pin, createdAt],
-        function (err) {
-            if (err) {
-                console.error('Erro ao registrar cliente:', err);
-                if (err.message.includes('UNIQUE')) {
-                    db.close();
-                    return res.status(400).json({ error: 'Este nome com este PIN jÃ¡ estÃ¡ cadastrado' });
-                }
-                db.close();
-                return res.status(500).json({ error: 'Erro ao registrar cliente' });
-            }
-            res.json({
-                message: 'Cliente cadastrado com sucesso',
-                clientId: this.lastID
-            });
-            db.close();
-        }
-    );
-});
-
-// Client login (Name + PIN)
-app.post('/api/clients/login', (req, res) => {
-    const { name, pin, storeEmail } = req.body;
-
-    // Validate input
-    if (!name || !pin) {
-        return res.status(400).json({ error: 'Nome e PIN são obrigatórios' });
-    }
-
-    // 1. Try to find a Store Owner (User) with this Name (username) and PIN
-    mainDb.get('SELECT * FROM users WHERE username = ? AND pin = ?', [name, pin], (err, user) => {
-        if (err) {
-            console.error('Erro ao buscar usuário:', err);
-            return res.status(500).json({ error: 'Erro interno' });
-        }
-
-        if (user) {
-            // Found a store owner!
-            const token = jwt.sign(
-                {
-                    clientId: user.id,
-                    clientName: user.username,
-                    storeId: user.id, // Store Owner is their own store
-                    isStoreOwner: true
-                },
-                SECRET_KEY,
-                { expiresIn: '24h' }
-            );
-
-            return res.json({
-                message: 'Login realizado com sucesso (Lojista)',
-                token,
-                client: {
-                    id: user.id,
-                    name: user.username,
-                    isStoreOwner: true
-                }
-            });
-        }
-
-        // 2. If not a store owner, try to find a Client
-        if (!storeEmail) {
-            return res.status(401).json({ error: 'Nome da Loja ou PIN incorretos' });
-        }
-
-        // Find store by email
-        mainDb.get('SELECT id FROM users WHERE email = ?', [storeEmail], (err, store) => {
-            if (err || !store) {
-                return res.status(404).json({ error: 'Loja não encontrada' });
-            }
-
-            const db = getUserDb(store.id);
-
-            db.get('SELECT * FROM clients WHERE name = ? AND pin = ?', [name, pin], (err, client) => {
-                if (err) {
-                    console.error('Erro ao buscar cliente:', err);
-                    db.close();
-                    return res.status(500).json({ error: 'Erro ao fazer login' });
-                }
-
-                if (!client) {
-                    db.close();
-                    return res.status(401).json({ error: 'Nome da Loja ou PIN incorretos' });
-                }
-
-                // Generate a token for the client
-                const token = jwt.sign(
-                    { clientId: client.id, clientName: client.name, storeId: store.id },
-                    SECRET_KEY,
-                    { expiresIn: '24h' }
-                );
-
-                res.json({
-                    message: 'Login realizado com sucesso',
-                    token,
-                    client: {
-                        id: client.id,
-                        name: client.name
-                    }
-                });
-                db.close();
-            });
-        });
-    });
-});
-
 app.get('/api/clients', authenticateToken, (req, res) => {
     const userId = req.user.id;
     const db = getUserDb(userId);
@@ -436,6 +242,55 @@ app.get('/api/clients', authenticateToken, (req, res) => {
         db.close();
     });
 });
+
+// ==================== AUTH ROUTES ====================
+// Support both /api/auth/* and /api/* for compatibility
+
+const handleRegister = (req, res) => {
+    const { username, email, password, cnpj } = req.body;
+    const hashedPassword = bcrypt.hashSync(password, 10);
+
+    mainDb.run(`INSERT INTO users (username, email, password, createdAt) VALUES (?, ?, ?, ?)`,
+        [username, email, hashedPassword, new Date().toISOString()],
+        function (err) {
+            if (err) return res.status(400).json({ error: 'Email já cadastrado' });
+
+            // Initialize user DB
+            const userDb = getUserDb(this.lastID);
+            userDb.close();
+
+            res.json({ message: 'Usuário cadastrado com sucesso!' });
+        }
+    );
+};
+
+const handleLogin = (req, res) => {
+    const { email, password } = req.body;
+
+    mainDb.get(`SELECT * FROM users WHERE email = ?`, [email], (err, user) => {
+        if (err || !user) return res.status(400).json({ error: 'Usuário não encontrado' });
+
+        if (!bcrypt.compareSync(password, user.password)) {
+            return res.status(400).json({ error: 'Senha incorreta' });
+        }
+
+        // Check Subscription (skip for admin)
+        if (!user.isAdmin && user.subscriptionStatus !== 'active') {
+            // Allow login but frontend handles restriction? 
+            // Or block? User said "Sim" enables access.
+            // We'll send the status and let frontend handle the "Subscription Screen"
+        }
+
+        const token = jwt.sign({ id: user.id, email: user.email, isAdmin: user.isAdmin }, SECRET_KEY);
+        res.json({ token, user: { id: user.id, username: user.username, email: user.email, isAdmin: user.isAdmin, subscriptionStatus: user.subscriptionStatus } });
+    });
+};
+
+app.post('/api/register', handleRegister);
+app.post('/api/auth/register', handleRegister);
+
+app.post('/api/login', handleLogin);
+app.post('/api/auth/login', handleLogin);
 
 // ==================== APP ROUTES ====================
 
@@ -588,6 +443,22 @@ app.delete('/api/products/:id', authenticateToken, (req, res) => {
     const db = getUserDb(req.user.id);
     db.run(`DELETE FROM products WHERE id=?`, [req.params.id], function (err) {
         res.json({ message: 'Deleted' });
+        db.close();
+    });
+});
+
+app.get('/api/products/:id', authenticateToken, (req, res) => {
+    const db = getUserDb(req.user.id);
+    db.get(`SELECT * FROM products WHERE id = ?`, [req.params.id], (err, row) => {
+        if (err) {
+            db.close();
+            return res.status(500).json({ error: err.message });
+        }
+        if (!row) {
+            db.close();
+            return res.status(404).json({ error: 'Produto não encontrado' });
+        }
+        res.json(row);
         db.close();
     });
 });

@@ -57,6 +57,7 @@ build/
 # Comprovantes de pagamento (imagens sensíveis)
 proof.png
 proofs/
+public/uploads/
 uploads/
 
 # Cloudflare e Ngrok

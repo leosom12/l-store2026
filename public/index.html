@@ -138,8 +138,8 @@
                 <h2>Login Cliente</h2>
                 <form onsubmit="loginClient(event)">
                     <div class="form-group">
-                        <label><i class="ph ph-storefront"></i> Nome da Loja</label>
-                        <input type="text" id="client-login-name" required placeholder="Digite o nome da loja"
+                        <label><i class="ph ph-user"></i> Seu Nome</label>
+                        <input type="text" id="client-login-name" required placeholder="Digite seu nome"
                             autocomplete="off">
                     </div>
                     <div class="form-group">
@@ -197,9 +197,9 @@
                     <i class="ph ph-percent"></i>
                     <span>Cupons</span>
                 </button>
-                <button class="action-btn">
-                    <i class="ph ph-lightning"></i>
-                    <span>Flash</span>
+                <button class="action-btn" onclick="openLoyaltyModal()">
+                    <i class="ph ph-star" style="color: var(--accent-orange);"></i>
+                    <span>LP</span>
                 </button>
                 <button class="action-btn">
                     <i class="ph ph-gift"></i>
@@ -448,6 +448,10 @@
                                 <div>Cliente: <span id="pos-client-name">CLIENTE PADRÃO</span></div>
                             </div>
 
+                            <div class="pos-watermark">
+                                <i class="ph ph-shopping-cart"></i>
+                            </div>
+
                             <div class="pos-main-container">
                                 <!-- Left Panel -->
                                 <div class="pos-panel-left">
@@ -487,17 +491,8 @@
                                         <div class="pos-price-value" id="pos-unit-price">R$ 0,00</div>
                                     </div>
 
-                                    <div class="payment-methods" style="margin-bottom: 0;">
-                                        <button class="payment-btn active" data-method="dinheiro"><i
-                                                class="ph ph-money"></i> Dinheiro</button>
-                                        <button class="payment-btn" data-method="cartao"><i
-                                                class="ph ph-credit-card"></i> Cartão</button>
-                                        <button class="payment-btn" data-method="pix"><i
-                                                class="ph ph-device-mobile-camera"></i> PIX</button>
-                                        <button class="payment-btn" data-method="misto"
-                                            style="background: linear-gradient(45deg, #f59e0b, #d97706); border: none;"><i
-                                                class="ph ph-scales"></i> Misto</button>
-                                    </div>
+                                    <!-- Payment Methods Removed -->
+                                    <input type="hidden" id="payment-method" value="dinheiro">
                                     <input type="hidden" id="payment-method" value="dinheiro">
 
                                     <div style="margin-top: auto; color: #666; font-size: 0.9rem;">
@@ -596,7 +591,7 @@
                                                 <option value="pix">PIX</option>
                                             </select>
                                             <input type="number" id="split-payment-amount" class="form-input"
-                                                placeholder="Valor" style="width: 120px;">
+                                                placeholder="Valor" style="width: 120px;" min="0.01" step="0.01">
                                             <button class="btn-primary" onclick="addSplitPayment()">Adicionar</button>
                                         </div>
 
@@ -638,81 +633,32 @@
                         </div>
                     </div>
 
-                    <!-- Products Tab (Split Screen) -->
+                    <!-- Products Tab (Full Width List) -->
                     <div id="products-tab" class="tab-content">
-                        <div class="products-layout">
-                            <!-- Left Panel: Product Form -->
-                            <div class="products-form-panel">
-                                <h2 id="product-form-title"><i class="ph ph-plus-circle"></i> Novo Produto</h2>
-                                <form id="product-form">
-                                    <input type="hidden" id="product-id">
-
-                                    <div class="form-group">
-                                        <label>Código de Barras</label>
-                                        <div style="display: flex; gap: 0.5rem;">
-                                            <input type="text" id="product-barcode" required>
-                                            <button type="button" class="btn-secondary" onclick="generateBarcode()"
-                                                title="Gerar Código">
-                                                <i class="ph ph-barcode"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label>Nome do Produto</label>
-                                        <input type="text" id="product-name" required>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label>Categoria</label>
-                                        <select id="product-category" required>
-                                            <option value="Geral">Geral</option>
-                                            <option value="Alimentos">Alimentos</option>
-                                            <option value="Bebidas">Bebidas</option>
-                                            <option value="Limpeza">Limpeza</option>
-                                            <option value="Higiene">Higiene</option>
-                                            <option value="Hortifruti">Hortifruti</option>
-                                            <option value="Padaria">Padaria</option>
-                                            <option value="Açougue">Açougue</option>
-                                        </select>
-                                    </div>
-
-                                    <div class="form-row">
-                                        <div class="form-group">
-                                            <label>Preço (R$)</label>
-                                            <input type="number" id="product-price" step="0.01" min="0" required>
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Estoque Inicial</label>
-                                            <input type="number" id="product-stock" min="0" required>
-                                        </div>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label>Imagem do Produto</label>
-                                        <input type="file" id="product-image" accept="image/*"
-                                            onchange="previewImage(this)">
-                                        <div id="image-preview-container" style="display: none; margin-top: 10px;">
-                                            <img id="image-preview" src="" alt="Preview"
-                                                style="max-width: 100%; max-height: 200px; border-radius: 8px;">
-                                        </div>
-                                    </div>
-
-                                    <div class="form-actions">
-                                        <button type="submit" class="btn-primary" style="width: 100%;">Salvar
-                                            Produto</button>
-                                        <button type="button" class="btn-secondary" onclick="resetProductForm()"
-                                            style="width: 100%; margin-top: 0.5rem;">Limpar / Novo</button>
-                                    </div>
-                                </form>
-                            </div>
+                        <div class="products-layout" style="display: block;">
+                            <!-- Form Panel Removed -->
 
                             <!-- Right Panel: Product List -->
                             <div class="products-list-panel">
-                                <div class="list-header">
-                                    <h2><i class="ph ph-list"></i> Lista de Produtos</h2>
-                                    <button onclick="debugProducts()" class="btn-sm btn-warning"><i
-                                            class="ph ph-bug"></i> Debug</button>
+                                <div class="list-header"
+                                    style="display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
+                                    <h2 style="white-space: nowrap;"><i class="ph ph-list"></i> Lista de
+                                        Produtos</h2>
+                                    <button class="btn-primary" onclick="openProductModal()"
+                                        style="white-space: nowrap; padding: 0.4rem 0.6rem; font-size: 0.85rem; width: auto;">
+                                        <i class="ph ph-plus"></i> Novo Produto
+                                    </button>
+                                    <div class="product-search-container" style="flex: 2; position: relative;">
+                                        <i class="ph ph-magnifying-glass"
+                                            style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
+                                        <input type="text" id="product-list-search"
+                                            placeholder="Buscar por nome, código ou categoria..."
+                                            onkeyup="filterProductsList()"
+                                            style="width: 100%; padding: 0.6rem 0.6rem 0.6rem 2.5rem; border-radius: 8px; border: 1px solid var(--border-glass); background: rgba(255,255,255,0.05); color: #333; font-size: 0.95rem;">
+                                    </div>
+
+                                    <button onclick="debugProducts()" class="btn-sm btn-warning"
+                                        style="white-space: nowrap;"><i class="ph ph-bug"></i> Debug</button>
                                 </div>
                                 <div class="table-container">
                                     <table class="data-table">
@@ -769,7 +715,8 @@
                             <div style="display: flex; gap: 1rem;">
                                 <input type="text" id="stock-search" placeholder="Buscar produto..."
                                     style="padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-glass); background: rgba(255,255,255,0.05); color: white;">
-                                <button id="add-stock-movement-btn" class="btn-primary">+ Nova Movimentação</button>
+                                <button id="add-stock-movement-btn" class="btn-primary">+ Nova
+                                    Movimentação</button>
                             </div>
                         </div>
 
@@ -791,246 +738,264 @@
                             </table>
                         </div>
                     </div>
-
-                    <!-- Sales Tab -->
-                    <div id="sales-tab" class="tab-content">
-                        <h2><i class="ph ph-trend-up"></i> Histórico de Vendas</h2>
-                        <div class="table-container">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Data</th>
-                                        <th>Itens</th>
-                                        <th>Pagamento</th>
-                                        <th>Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="sales-table-body"></tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- Boletos Tab -->
-                    <div id="boletos-tab" class="tab-content">
-                        <div class="tab-header">
-                            <h2><i class="ph ph-barcode"></i> Gerenciamento de Boletos</h2>
-                            <button id="add-boleto-btn" class="btn-primary">+ Novo Boleto</button>
-                        </div>
-                        <div class="table-container">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>Descrição</th>
-                                        <th>Valor</th>
-                                        <th>Vencimento</th>
-                                        <th>Status</th>
-                                        <th>Dias Restantes</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="boletos-table-body"></tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- Devedores Tab -->
-                    <div id="debtors-tab" class="tab-content">
-                        <div class="tab-header">
-                            <h2><i class="ph ph-users"></i> Devedores (Fiado)</h2>
-                            <button id="add-debtor-btn" class="btn-primary" onclick="openDebtorModal()">+ Novo
-                                Devedor</button>
-                        </div>
-                        <div class="table-container">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>Nome</th>
-                                        <th>CPF</th>
-                                        <th>Telefone</th>
-                                        <th>Dívida Atual</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="debtors-table-body"></tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- Relatórios Tab -->
-                    <div id="reports-tab" class="tab-content">
-                        <h2><i class="ph ph-chart-line-up"></i> Relatórios</h2>
-                        <div class="dashboard-grid">
-                            <div class="dashboard-card">
-                                <div class="card-icon"><i class="ph ph-calendar-check"></i></div>
-                                <div class="card-info">
-                                    <h3>Vendas Hoje</h3>
-                                    <p id="report-sales-today" class="card-value">R$ 0,00</p>
-                                </div>
-                            </div>
-                            <div class="dashboard-card">
-                                <div class="card-icon"><i class="ph ph-calendar-plus"></i></div>
-                                <div class="card-info">
-                                    <h3>Vendas Mês</h3>
-                                    <p id="report-sales-month" class="card-value">R$ 0,00</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Financeiro Tab -->
-                    <div id="financial-tab" class="tab-content">
-                        <h2><i class="ph ph-bank"></i> Financeiro</h2>
-                        <div class="dashboard-grid">
-                            <div class="dashboard-card success">
-                                <div class="card-icon"><i class="ph ph-arrow-up"></i></div>
-                                <div class="card-info">
-                                    <h3>Receitas</h3>
-                                    <p id="fin-income" class="card-value">R$ 0,00</p>
-                                </div>
-                            </div>
-                            <div class="dashboard-card danger">
-                                <div class="card-icon"><i class="ph ph-arrow-down"></i></div>
-                                <div class="card-info">
-                                    <h3>Despesas</h3>
-                                    <p id="fin-expenses" class="card-value">R$ 0,00</p>
-                                </div>
-                            </div>
-                            <div class="dashboard-card">
-                                <div class="card-icon"><i class="ph ph-scales"></i></div>
-                                <div class="card-info">
-                                    <h3>Saldo</h3>
-                                    <p id="fin-balance" class="card-value">R$ 0,00</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Contabilidade Tab -->
-                    <div id="accounting-tab" class="tab-content">
-                        <h2><i class="ph ph-calculator"></i> Contabilidade</h2>
-                        <div class="tab-header">
-                            <h3>Livro Caixa</h3>
-                            <button class="btn-secondary"><i class="ph ph-download"></i> Exportar XML/CSV</button>
-                        </div>
-                        <div class="table-container">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>Data</th>
-                                        <th>Descrição</th>
-                                        <th>Tipo</th>
-                                        <th>Valor</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="accounting-table-body"></tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- Assinatura Tab -->
-                    <div id="subscription-tab" class="tab-content">
-                        <h2><i class="ph ph-crown"></i> Assinatura</h2>
-                        <div class="dashboard-card">
-                            <div class="card-icon"><i class="ph ph-check-circle"></i></div>
-                            <div class="card-info">
-                                <h3>Status da Assinatura</h3>
-                                <p id="sub-status" class="card-value">Ativo</p>
-                                <small id="sub-expires">Expira em: ...</small>
-                            </div>
-                        </div>
-                        <div style="margin-top: 1rem;">
-                            <button class="btn-primary" onclick="renewSubscription()">Renovar Assinatura
-                                (PIX)</button>
-                        </div>
-                    </div>
-
-                    <!-- Store Tab (Loja/Config) -->
-                    <div id="store-tab" class="tab-content">
-                        <h2><i class="ph ph-storefront"></i> Configurações da Loja</h2>
-                        <div class="auth-form" style="max-width: 100%; margin: 0;">
-                            <h3>Dados de Pagamento</h3>
-                            <div class="form-group">
-                                <label>Chave PIX (Assinatura)</label>
-                                <input type="text" value="62819358000106" readonly
-                                    style="background: rgba(0,0,0,0.3); color: var(--text-secondary);">
-                                <small style="color: var(--accent-orange);">* Esta chave não pode ser
-                                    alterada.</small>
-                            </div>
-                            <div class="form-group">
-                                <label>Chave PIX (Recebimento Loja)</label>
-                                <input type="text" id="store-pix-key" placeholder="Sua chave PIX para receber vendas">
-                            </div>
-                            <button class="btn-primary" onclick="saveStoreConfig()">Salvar Configurações</button>
-                        </div>
-                    </div>
-
-                    <!-- Admin Tab -->
-                    <div id="admin-tab" class="tab-content">
-                        <h2><i class="ph ph-gear"></i> Administração</h2>
-                        <div class="admin-section">
-                            <h3><i class="ph ph-users"></i> Usuários Cadastrados</h3>
-                            <div class="table-container">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>ID</th>
-                                            <th>Nome</th>
-                                            <th>Email</th>
-                                            <th>Tipo</th>
-                                            <th>Cadastro</th>
-                                            <th>Status Assinatura</th>
-                                            <th>Ações</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="admin-users-table-body"></tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </main>
-
-                <!-- Bottom Navigation (Fixed) -->
-                <nav class="bottom-nav">
-                    <button class="nav-item active-green" data-tab="caixa">
-                        <i class="ph ph-cash-register"></i>
-                        <span>CAIXA</span>
-                    </button>
-                    <button class="nav-item" data-tab="sales">
-                        <i class="ph ph-receipt"></i>
-                        <span>VENDAS</span>
-                    </button>
-                    <button class="nav-item" data-tab="boletos">
-                        <i class="ph ph-barcode"></i>
-                        <span>BOLETOS</span>
-                    </button>
-                    <button class="nav-item" data-tab="accounting">
-                        <i class="ph ph-book-open"></i>
-                        <span>CONTABILIDADE</span>
-                    </button>
-                    <button class="nav-item" data-tab="financial">
-                        <i class="ph ph-currency-dollar"></i>
-                        <span>FINANCEIRO</span>
-                    </button>
-                    <button class="nav-item" data-tab="store">
-                        <i class="ph ph-storefront"></i>
-                        <span>LOJA</span>
-                    </button>
-                    <button class="nav-item" data-tab="estoque">
-                        <i class="ph ph-package"></i>
-                        <span>ESTOQUE</span>
-                    </button>
-                    <button class="nav-item" data-tab="products">
-                        <i class="ph ph-shopping-bag"></i>
-                        <span>PRODUTOS</span>
-                    </button>
-                    <button class="nav-item" data-tab="debtors">
-                        <i class="ph ph-users"></i>
-                        <span>DEVEDORES</span>
-                    </button>
-                </nav>
             </div>
+
+            <!-- Sales Tab -->
+            <div id="sales-tab" class="tab-content">
+                <h2><i class="ph ph-trend-up"></i> Histórico de Vendas</h2>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Data</th>
+                                <th>Itens</th>
+                                <th>Pagamento</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sales-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Boletos Tab -->
+            <div id="boletos-tab" class="tab-content">
+                <div class="tab-header">
+                    <h2><i class="ph ph-barcode"></i> Gerenciamento de Boletos</h2>
+                    <button id="add-boleto-btn" class="btn-primary">+ Novo Boleto</button>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Descrição</th>
+                                <th>Valor</th>
+                                <th>Vencimento</th>
+                                <th>Status</th>
+                                <th>Dias Restantes</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="boletos-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Devedores Tab -->
+            <div id="debtors-tab" class="tab-content">
+                <div class="tab-header">
+                    <h2><i class="ph ph-users"></i> Devedores (Fiado)</h2>
+                    <button id="add-debtor-btn" class="btn-primary" onclick="openDebtorModal()">+ Novo
+                        Devedor</button>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>CPF</th>
+                                <th>Telefone</th>
+                                <th>Dívida Atual</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="debtors-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Relatórios Tab -->
+            <div id="reports-tab" class="tab-content">
+                <h2><i class="ph ph-chart-line-up"></i> Relatórios</h2>
+                <div class="dashboard-grid">
+                    <div class="dashboard-card">
+                        <div class="card-icon"><i class="ph ph-calendar-check"></i></div>
+                        <div class="card-info">
+                            <h3>Vendas Hoje</h3>
+                            <p id="report-sales-today" class="card-value">R$ 0,00</p>
+                        </div>
+                    </div>
+                    <div class="dashboard-card">
+                        <div class="card-icon"><i class="ph ph-calendar-plus"></i></div>
+                        <div class="card-info">
+                            <h3>Vendas Mês</h3>
+                            <p id="report-sales-month" class="card-value">R$ 0,00</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Financeiro Tab -->
+            <div id="financial-tab" class="tab-content">
+                <h2><i class="ph ph-bank"></i> Financeiro</h2>
+                <div class="dashboard-grid">
+                    <div class="dashboard-card success">
+                        <div class="card-icon"><i class="ph ph-arrow-up"></i></div>
+                        <div class="card-info">
+                            <h3>Receitas</h3>
+                            <p id="fin-income" class="card-value">R$ 0,00</p>
+                        </div>
+                    </div>
+                    <div class="dashboard-card danger">
+                        <div class="card-icon"><i class="ph ph-arrow-down"></i></div>
+                        <div class="card-info">
+                            <h3>Despesas</h3>
+                            <p id="fin-expenses" class="card-value">R$ 0,00</p>
+                        </div>
+                    </div>
+                    <div class="dashboard-card">
+                        <div class="card-icon"><i class="ph ph-scales"></i></div>
+                        <div class="card-info">
+                            <h3>Saldo</h3>
+                            <p id="fin-balance" class="card-value">R$ 0,00</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contabilidade Tab -->
+            <div id="accounting-tab" class="tab-content">
+                <h2><i class="ph ph-calculator"></i> Contabilidade</h2>
+                <div class="tab-header">
+                    <h3>Livro Caixa</h3>
+                    <button class="btn-secondary"><i class="ph ph-download"></i> Exportar
+                        XML/CSV</button>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Descrição</th>
+                                <th>Tipo</th>
+                                <th>Valor</th>
+                            </tr>
+                        </thead>
+                        <tbody id="accounting-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Assinatura Tab -->
+            <div id="subscription-tab" class="tab-content">
+                <h2><i class="ph ph-crown"></i> Assinatura</h2>
+                <div class="dashboard-card">
+                    <div class="card-icon"><i class="ph ph-check-circle"></i></div>
+                    <div class="card-info">
+                        <h3>Status da Assinatura</h3>
+                        <p id="sub-status" class="card-value">Ativo</p>
+                        <small id="sub-expires">Expira em: ...</small>
+                    </div>
+                </div>
+                <div style="margin-top: 1rem;">
+                    <button class="btn-primary" onclick="renewSubscription()">Renovar Assinatura
+                        (PIX)</button>
+                </div>
+            </div>
+
+            <!-- Store Tab (Loja/Config) -->
+            <div id="store-tab" class="tab-content">
+                <h2><i class="ph ph-storefront"></i> Configurações da Loja</h2>
+                <div class="auth-form" style="max-width: 100%; margin: 0;">
+                    <h3>Dados de Pagamento</h3>
+                    <div class="form-group">
+                        <label>Chave PIX (Assinatura)</label>
+                        <input type="text" value="62819358000106" readonly
+                            style="background: rgba(0,0,0,0.3); color: var(--text-secondary);">
+                        <small style="color: var(--accent-orange);">* Esta chave não pode ser
+                            alterada.</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Chave PIX (Recebimento Loja)</label>
+                        <input type="text" id="store-pix-key" placeholder="Sua chave PIX para receber vendas">
+                    </div>
+
+                    <hr style="margin: 1.5rem 0; border: 0; border-top: 1px solid rgba(255,255,255,0.1);">
+
+                    <h3>Sistema de Fidelidade (LP)</h3>
+                    <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
+                        <input type="checkbox" id="enable-loyalty" style="width: auto; margin: 0;">
+                        <label for="enable-loyalty" style="margin: 0; cursor: pointer;">Ativar Sistema de Pontos</label>
+                    </div>
+                    <div class="form-group" id="loyalty-rate-group" style="display: none;">
+                        <label>Taxa de Cashback (%)</label>
+                        <input type="number" id="loyalty-cashback-rate" placeholder="Ex: 5" min="0" max="100"
+                            step="0.1">
+                        <small style="color: var(--text-secondary);">Porcentagem da compra que volta como pontos (1 LP =
+                            R$ 0,01)</small>
+                    </div>
+                    <button class="btn-primary" onclick="saveStoreConfig()">Salvar
+                        Configurações</button>
+                </div>
+            </div>
+
+            <!-- Admin Tab -->
+            <div id="admin-tab" class="tab-content">
+                <h2><i class="ph ph-gear"></i> Administração</h2>
+                <div class="admin-section">
+                    <h3><i class="ph ph-users"></i> Usuários Cadastrados</h3>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nome</th>
+                                    <th>Email</th>
+                                    <th>Tipo</th>
+                                    <th>Cadastro</th>
+                                    <th>Status Assinatura</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-users-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            </main>
+
+            <!-- Bottom Navigation (Fixed) -->
+            <nav class="bottom-nav">
+                <button class="nav-item active-green" data-tab="caixa">
+                    <i class="ph ph-cash-register"></i>
+                    <span>CAIXA</span>
+                </button>
+                <button class="nav-item" data-tab="sales">
+                    <i class="ph ph-receipt"></i>
+                    <span>VENDAS</span>
+                </button>
+                <button class="nav-item" data-tab="boletos">
+                    <i class="ph ph-barcode"></i>
+                    <span>BOLETOS</span>
+                </button>
+                <button class="nav-item" data-tab="accounting">
+                    <i class="ph ph-book-open"></i>
+                    <span>CONTABILIDADE</span>
+                </button>
+                <button class="nav-item" data-tab="financial">
+                    <i class="ph ph-currency-dollar"></i>
+                    <span>FINANCEIRO</span>
+                </button>
+                <button class="nav-item" data-tab="store">
+                    <i class="ph ph-storefront"></i>
+                    <span>LOJA</span>
+                </button>
+                <button class="nav-item" data-tab="estoque">
+                    <i class="ph ph-package"></i>
+                    <span>ESTOQUE</span>
+                </button>
+                <button class="nav-item" data-tab="products">
+                    <i class="ph ph-shopping-bag"></i>
+                    <span>PRODUTOS</span>
+                </button>
+                <button class="nav-item" data-tab="debtors">
+                    <i class="ph ph-users"></i>
+                    <span>DEVEDORES</span>
+                </button>
+            </nav>
         </div>
+    </div>
     </div>
 
 
@@ -1082,7 +1047,7 @@
                 </div>
                 <div class="form-group">
                     <label><i class="ph ph-currency-dollar"></i> Valor (R$)</label>
-                    <input type="number" id="boleto-value" step="0.01" required placeholder="0.00">
+                    <input type="number" id="boleto-value" step="0.01" required placeholder="0.00" min="0.01">
                 </div>
                 <div class="form-group">
                     <label><i class="ph ph-calendar"></i> Data de Vencimento</label>
@@ -1143,7 +1108,7 @@
                 <input type="hidden" id="pay-debt-id">
                 <div class="form-group">
                     <label>Valor a Pagar (R$)</label>
-                    <input type="number" id="pay-debt-amount" step="0.01" required>
+                    <input type="number" id="pay-debt-amount" step="0.01" required min="0.01">
                 </div>
                 <div class="modal-actions">
                     <button type="submit" class="btn-success">Confirmar Pagamento</button>
@@ -1163,7 +1128,7 @@
             <form id="cash-register-form">
                 <div class="form-group">
                     <label>Valor Inicial (Fundo de Troco)</label>
-                    <input type="number" id="cash-register-opening-balance" step="0.01" min="0" placeholder="0.00"
+                    <input type="number" id="cash-register-opening-balance" step="0.01" min="0.01" placeholder="0.00"
                         required>
                 </div>
                 <div class="modal-actions">
@@ -1174,9 +1139,279 @@
         </div>
     </div>
 
+    <!-- ========== MODAL DE PAGAMENTO (NOVO) ========== -->
+    <div id="payment-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>Finalizar Venda</h2>
+                <button class="close-modal" onclick="closePaymentModal()">&times;</button>
+            </div>
+
+            <!-- Client Selection -->
+            <div class="form-group" style="margin-bottom: 1.5rem; text-align: left;">
+                <label><i class="ph ph-user"></i> Cliente (Fidelidade)</label>
+                <div style="display: flex; gap: 10px;">
+                    <select id="payment-client-select"
+                        style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border-glass); background: var(--bg-glass); color: var(--text-primary);">
+                        <option value="">Cliente Não Identificado</option>
+                    </select>
+                    <button class="btn-secondary" onclick="openNewClientModal()" title="Novo Cliente"
+                        style="width: auto; padding: 0 1rem;">
+                        <i class="ph ph-plus"></i>
+                    </button>
+                </div>
+                <small id="client-loyalty-info"
+                    style="color: var(--accent-orange); display: none; margin-top: 5px;">Saldo: 0 LP</small>
+            </div>
+
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <div style="font-size: 1.2rem; color: var(--text-secondary);">Total a Pagar</div>
+                <div id="payment-modal-total" style="font-size: 3rem; font-weight: 800; color: var(--accent-green);">R$
+                    0,00</div>
+            </div>
+
+            <div class="payment-options-grid"
+                style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
+                <button class="payment-option-btn active" onclick="selectModalPayment('dinheiro')" id="btn-modal-money">
+                    <i class="ph ph-money" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                    Dinheiro
+                </button>
+                <button class="payment-option-btn" onclick="selectModalPayment('cartao')" id="btn-modal-card">
+                    <i class="ph ph-credit-card" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                    Cartão
+                </button>
+                <button class="payment-option-btn" onclick="selectModalPayment('pix')" id="btn-modal-pix">
+                    <i class="ph ph-qr-code" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                    PIX
+                </button>
+                <button class="payment-option-btn" onclick="selectModalPayment('pontos')" id="btn-modal-points">
+                    <i class="ph ph-star" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                    Pontos
+                </button>
+            </div>
+
+            <div id="cash-payment-area"
+                style="background: rgba(255,255,255,0.05); padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem;">
+                <div class="form-group">
+                    <label style="font-size: 1.1rem;">Valor Recebido (R$)</label>
+                    <input type="number" id="modal-amount-paid" class="pos-input"
+                        style="font-size: 1.5rem; text-align: center;" placeholder="0,00" min="0.01" step="0.01"
+                        oninput="calculateModalChange()">
+                </div>
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; font-size: 1.2rem;">
+                    <span>Troco:</span>
+                    <span id="modal-change" style="font-weight: bold; color: var(--accent-cyan);">R$ 0,00</span>
+                </div>
+            </div>
+
+
+
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closePaymentModal()">Cancelar</button>
+                <button class="btn-success" onclick="confirmPayment()" style="flex: 2; font-size: 1.2rem;">CONFIRMAR
+                    PAGAMENTO</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== MODAL DE PIX (NOVO) ========== -->
+    <div id="pix-modal" class="modal-overlay" style="display: none; z-index: 2000;">
+        <div class="modal-content" style="max-width: 600px; text-align: center;">
+            <div class="modal-header">
+                <h2><i class="ph ph-qr-code"></i> Pagamento via PIX</h2>
+                <button class="close-modal" onclick="closePixModal()">&times;</button>
+            </div>
+
+            <div style="margin-bottom: 2rem;">
+                <div style="font-size: 1.2rem; color: var(--text-secondary); margin-bottom: 1rem;">Escaneie o QR Code
+                    abaixo</div>
+                <div id="pix-qr-container"
+                    style="background: white; padding: 1.5rem; border-radius: 16px; display: inline-block; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+                    <!-- QR Code will be injected here -->
+                </div>
+            </div>
+
+            <div id="pix-timer"
+                style="font-size: 1.5rem; color: var(--accent-orange); font-weight: 800; margin-bottom: 2rem;">
+                Atualiza em: 02:00
+            </div>
+
+            <div class="modal-actions" style="justify-content: center; gap: 1rem;">
+                <button class="btn-secondary" onclick="closePixModal()" style="min-width: 150px;">
+                    <i class="ph ph-arrow-left"></i> Voltar
+                </button>
+                <button class="btn-success" onclick="confirmPayment()" style="min-width: 200px; font-size: 1.2rem;">
+                    <i class="ph ph-check"></i> CONFIRMAR PAGAMENTO
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== MODAL NOVO CLIENTE ========== -->
+    <div id="new-client-modal" class="modal-overlay" style="display: none; z-index: 2100;">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2><i class="ph ph-user-plus"></i> Novo Cliente</h2>
+                <button class="close-modal" onclick="closeNewClientModal()">&times;</button>
+            </div>
+            <form id="new-client-form">
+                <div class="form-group">
+                    <label>Nome</label>
+                    <input type="text" id="new-client-name" required>
+                </div>
+                <div class="form-group">
+                    <label>CPF (Opcional)</label>
+                    <input type="text" id="new-client-cpf" oninput="maskCPF(this)">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeNewClientModal()">Cancelar</button>
+                    <button type="submit" class="btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========== MODAL NOVO CLIENTE ========== -->
+    <div id="new-client-modal" class="modal-overlay" style="display: none; z-index: 2100;">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2><i class="ph ph-user-plus"></i> Novo Cliente</h2>
+                <button class="close-modal" onclick="closeNewClientModal()">&times;</button>
+            </div>
+            <form id="new-client-form">
+                <div class="form-group">
+                    <label>Nome</label>
+                    <input type="text" id="new-client-name" required>
+                </div>
+                <div class="form-group">
+                    <label>CPF (Opcional)</label>
+                    <input type="text" id="new-client-cpf" oninput="maskCPF(this)">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeNewClientModal()">Cancelar</button>
+                    <button type="submit" class="btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========== MODAL DE PRODUTO (NOVO) ========== -->
+    <div id="product-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2 id="product-form-title"><i class="ph ph-plus-circle"></i> Novo Produto</h2>
+                <button class="close-modal" onclick="closeProductModal()">&times;</button>
+            </div>
+
+            <form id="product-form">
+                <input type="hidden" id="product-id">
+
+                <div class="form-group">
+                    <label>Código de Barras</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="text" id="product-barcode" required>
+                        <button type="button" class="btn-secondary" onclick="generateBarcode()" title="Gerar Código">
+                            <i class="ph ph-barcode"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Nome do Produto</label>
+                    <input type="text" id="product-name" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Categoria</label>
+                    <select id="product-category" required>
+                        <option value="Geral">Geral</option>
+                        <option value="Alimentos">Alimentos</option>
+                        <option value="Bebidas">Bebidas</option>
+                        <option value="Limpeza">Limpeza</option>
+                        <option value="Higiene">Higiene</option>
+                        <option value="Hortifruti">Hortifruti</option>
+                        <option value="Padaria">Padaria</option>
+                        <option value="Açougue">Açougue</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Preço de Custo (R$)</label>
+                        <input type="number" id="product-cost-price" step="0.01" min="0.01"
+                            oninput="calculateSellingPrice()">
+                    </div>
+                    <div class="form-group">
+                        <label>Margem de Lucro (%)</label>
+                        <input type="number" id="product-profit-margin" step="0.01" min="0"
+                            oninput="calculateSellingPrice()">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Preço de Venda (R$)</label>
+                        <input type="number" id="product-price" step="0.01" min="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Estoque Inicial</label>
+                        <input type="number" id="product-stock" min="0" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Imagem do Produto</label>
+                    <input type="file" id="product-image" accept="image/*" onchange="previewImage(this)">
+                    <div id="image-preview-container" style="display: none; margin-top: 10px;">
+                        <img id="image-preview" src="" alt="Preview"
+                            style="max-width: 100%; max-height: 200px; border-radius: 8px;">
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeProductModal()">Cancelar</button>
+                    <button type="submit" class="btn-primary">Salvar Produto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========== MODAL MEUS PONTOS (CLIENTE) ========== -->
+    <div id="loyalty-modal" class="modal-overlay" style="display: none; z-index: 3000;">
+        <div class="modal-content" style="max-width: 350px; text-align: center;">
+            <div class="modal-header" style="justify-content: center; position: relative;">
+                <h2 style="color: var(--accent-orange);"><i class="ph ph-star-fill"></i> Meus Pontos</h2>
+                <button class="close-modal" onclick="closeLoyaltyModal()"
+                    style="position: absolute; right: 0;">&times;</button>
+            </div>
+
+            <div style="margin: 2rem 0;">
+                <div style="font-size: 1rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Saldo Atual</div>
+                <div id="loyalty-balance-display"
+                    style="font-size: 3.5rem; font-weight: 800; color: var(--text-primary); line-height: 1;">0</div>
+                <div style="font-size: 1.2rem; font-weight: bold; color: var(--accent-orange);">LP</div>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 12px; margin-bottom: 2rem;">
+                <div style="font-size: 0.9rem; color: var(--text-secondary);">Valor para Resgate</div>
+                <div id="loyalty-value-display" style="font-size: 1.8rem; font-weight: bold; color: var(--success);">R$
+                    0,00</div>
+            </div>
+
+            <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
+                Use seus pontos para pagar compras na loja!
+                <br>1 LP = R$ 0,01
+            </p>
+
+            <button class="btn-primary" onclick="closeLoyaltyModal()" style="width: 100%;">Entendi</button>
+        </div>
+    </div>
+
     <script src="/login-fix.js?v=4.0.0"></script>
     <script src="/debug_products.js?v=4.0.0"></script>
-    <script src="/app.js?v=4.0.0"></script>
+    <script src="/js/qrcode.js?v=4.5.0"></script>
+    <script src="/app.js"></script>
 </body>
 
 </html>

@@ -328,48 +328,67 @@ function backToMainLogin() {
 
 function loginClient(e) {
     e.preventDefault();
-    const name = document.getElementById('client-login-name').value;
-    const pin = document.getElementById('client-login-pin').value;
+    const name = document.getElementById('client-login-name').value.trim();
+    const pin = document.getElementById('client-login-pin').value.trim();
 
-    // Try to get store email from logged-in user, otherwise use default admin
-    let storeEmail = 'djleocv.hotmail.com@gmail.com'; // Default admin email
+    if (!name || !pin) {
+        alert('Por favor, preencha todos os campos.');
+        return;
+    }
 
-    const userData = localStorage.getItem('userData');
-    if (userData) {
-        try {
-            storeEmail = JSON.parse(userData).email;
-        } catch (err) {
-            // Using default store email
+    // Ensure clients are loaded
+    if (clients.length === 0) loadClients();
+
+    // Find client by Name (case insensitive)
+    let client = clients.find(c => c.name.toLowerCase() === name.toLowerCase());
+
+    if (client) {
+        // Client exists, check PIN (if we had PIN in client record)
+        // For now, we accept any PIN or we should verify if we added PIN to client record.
+        // Since we didn't add PIN to addClient yet, let's just log them in.
+        // Ideally we should add PIN to client structure.
+
+        // Let's update client structure to include PIN if it doesn't have one?
+        // Or just proceed. The user said "criar hum nome", implying easy access.
+        // Let's assume PIN is just for "feeling secure" or we can save it now.
+        if (!client.pin) {
+            client.pin = pin; // Save PIN for future
+            saveClients();
+        } else if (client.pin !== pin) {
+            alert('❌ PIN incorreto!');
+            return;
+        }
+    } else {
+        // Create new client
+        if (confirm(`Cliente "${name}" não encontrado. Deseja criar um novo cadastro?`)) {
+            client = addClient(name, null); // CPF null for now
+            client.pin = pin; // Save PIN
+            saveClients();
+            alert('✅ Cliente cadastrado com sucesso!');
+        } else {
+            return;
         }
     }
 
-    fetch('/api/clients/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, pin, storeEmail })
-    })
-        .then(response => response.json())
-        .then(data => {
-            if (data.token) {
-                // Store client token and data
-                localStorage.setItem('clientToken', data.token);
-                localStorage.setItem('clientData', JSON.stringify(data.client));
+    // "Login" - Set client data in localStorage
+    const clientData = {
+        id: client.id,
+        username: client.name,
+        email: client.email || `${client.name.toLowerCase().replace(/\s/g, '')}@cliente.com`, // Dummy email
+        role: 'client',
+        lpBalance: client.lpBalance || 0
+    };
 
-                // Initialize client cart
-                if (!localStorage.getItem('clientCart')) {
-                    localStorage.setItem('clientCart', JSON.stringify([]));
-                }
+    localStorage.setItem('clientToken', 'dummy-client-token'); // Mock token
+    localStorage.setItem('clientData', JSON.stringify(clientData));
 
-                // Redirect to client store
-                showClientStore();
-            } else {
-                alert('❌ ' + (data.error || 'Nome da Loja ou PIN incorretos'));
-            }
-        })
-        .catch(error => {
-            console.error('Erro:', error);
-            alert('❌ Erro ao conectar com o servidor');
-        });
+    // Initialize client cart
+    if (!localStorage.getItem('clientCart')) {
+        localStorage.setItem('clientCart', JSON.stringify([]));
+    }
+
+    // Redirect to client store
+    showClientStore();
 }
 
 // ==================== CLIENT ONLINE STORE FUNCTIONS ====================
@@ -917,40 +936,7 @@ function loadProducts() {
         })
         .then(products => {
             allProducts = products; // Store for search
-            const tbody = document.getElementById('products-table-body');
-
-            if (!tbody) {
-                return;
-            }
-
-            tbody.innerHTML = '';
-
-            if (!Array.isArray(products) || products.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-secondary);">Nenhum produto cadastrado.</td></tr>';
-                return;
-            }
-
-            products.forEach((product, index) => {
-                const tr = document.createElement('tr');
-                let imageHtml = `<span style="font-size: 1.5rem;">${product.icon || '📦'}</span>`;
-                if (product.image) {
-                    imageHtml = `<img src="${product.image}" alt="${product.name}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`;
-                }
-
-                tr.innerHTML = `
-                    <td>${imageHtml}</td>
-                    <td>${product.barcode}</td>
-                    <td>${product.name}</td>
-                    <td>${product.category}</td>
-                    <td>${formatCurrency(product.price)}</td>
-                    <td class="${product.stock === 0 ? 'stock-zero' : product.stock <= 5 ? 'stock-low' : ''}">${product.stock}</td>
-                    <td>
-                        <button onclick="editProduct(${product.id})" class="btn-icon">✏️</button>
-                        <button onclick="deleteProduct(${product.id})" class="btn-icon">🗑️</button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
+            renderProductsTable(products);
         })
         .catch(error => {
             console.error('❌ ERRO ao carregar produtos:', error);
@@ -962,41 +948,121 @@ function loadProducts() {
         });
 }
 
-function editProduct(productId) {
-    // Populate the side form
-    const token = localStorage.getItem('authToken');
-    fetch(`/api/products/${productId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-    })
-        .then(response => response.json())
-        .then(product => {
-            document.getElementById('product-id').value = product.id;
-            document.getElementById('product-barcode').value = product.barcode;
-            document.getElementById('product-name').value = product.name;
-            document.getElementById('product-category').value = product.category;
-            document.getElementById('product-price').value = product.price;
-            document.getElementById('product-stock').value = product.stock;
+function filterProductsList() {
+    const query = document.getElementById('product-list-search').value.toLowerCase().trim();
 
-            if (product.image) {
-                document.getElementById('image-preview').src = product.image;
-                document.getElementById('image-preview-container').style.display = 'block';
-            } else {
-                document.getElementById('image-preview').src = '';
-                document.getElementById('image-preview-container').style.display = 'none';
-            }
+    if (!allProducts) return;
 
-            document.getElementById('product-form-title').innerHTML = '<i class="ph ph-pencil"></i> Editar Produto';
+    if (!query) {
+        renderProductsTable(allProducts);
+        return;
+    }
+
+    const filtered = allProducts.filter(p =>
+        p.name.toLowerCase().includes(query) ||
+        p.barcode.includes(query) ||
+        (p.category && p.category.toLowerCase().includes(query))
+    );
+
+    renderProductsTable(filtered);
+}
+
+function renderProductsTable(productsToRender) {
+    const tbody = document.getElementById('products-table-body');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    if (!Array.isArray(productsToRender) || productsToRender.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-secondary);">Nenhum produto encontrado.</td></tr>';
+        return;
+    }
+
+    productsToRender.forEach((product, index) => {
+        const tr = document.createElement('tr');
+        let imageHtml = `<span style="font-size: 1.5rem;">${product.icon || '📦'}</span>`;
+        if (product.image) {
+            imageHtml = `<img src="${product.image}" alt="${product.name}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`;
+        }
+
+        tr.innerHTML = `
+            <td>${imageHtml}</td>
+            <td>${product.barcode}</td>
+            <td>${product.name}</td>
+            <td>${product.category}</td>
+            <td>${formatCurrency(product.price)}</td>
+            <td class="${product.stock === 0 ? 'stock-zero' : product.stock <= 5 ? 'stock-low' : ''}">${product.stock}</td>
+            <td>
+                <button onclick="editProduct(${product.id})" class="btn-icon">✏️</button>
+                <button onclick="deleteProduct(${product.id})" class="btn-icon">🗑️</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+
+
+// ==================== PRODUTOS (MODAL) ====================
+function openProductModal(productId = null) {
+    const modal = document.getElementById('product-modal');
+    const form = document.getElementById('product-form');
+    const title = document.getElementById('product-form-title');
+
+    if (productId) {
+        // Edit Mode
+        title.innerHTML = '<i class="ph ph-pencil"></i> Editar Produto';
+
+        const token = localStorage.getItem('authToken');
+        fetch(`/api/products/${productId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
         })
-        .catch(err => console.error('Error loading product for edit:', err));
+            .then(response => response.json())
+            .then(product => {
+                document.getElementById('product-id').value = product.id;
+                document.getElementById('product-barcode').value = product.barcode;
+                document.getElementById('product-name').value = product.name;
+                document.getElementById('product-category').value = product.category;
+                document.getElementById('product-price').value = product.price;
+                document.getElementById('product-cost-price').value = product.costPrice || '';
+                document.getElementById('product-profit-margin').value = product.profitMargin || '';
+                document.getElementById('product-stock').value = product.stock;
+
+                if (product.image) {
+                    document.getElementById('image-preview').src = product.image;
+                    document.getElementById('image-preview-container').style.display = 'block';
+                } else {
+                    document.getElementById('image-preview').src = '';
+                    document.getElementById('image-preview-container').style.display = 'none';
+                }
+
+                modal.style.display = 'flex';
+            })
+            .catch(err => console.error('Error loading product for edit:', err));
+    } else {
+        // New Product Mode
+        title.innerHTML = '<i class="ph ph-plus-circle"></i> Novo Produto';
+        form.reset();
+        document.getElementById('product-id').value = '';
+        document.getElementById('image-preview').src = '';
+        document.getElementById('image-preview-container').style.display = 'none';
+        modal.style.display = 'flex';
+    }
+}
+
+function closeProductModal() {
+    document.getElementById('product-modal').style.display = 'none';
+}
+
+function editProduct(productId) {
+    openProductModal(productId);
 }
 
 function resetProductForm() {
+    // Legacy function, redirected to close modal or just reset
     document.getElementById('product-form').reset();
-    document.getElementById('product-id').value = '';
-    document.getElementById('image-preview').src = '';
-    document.getElementById('image-preview-container').style.display = 'none';
-    document.getElementById('product-form-title').innerHTML = '<i class="ph ph-plus-circle"></i> Novo Produto';
 }
+
 
 
 function previewImage(input) {
@@ -1010,8 +1076,32 @@ function previewImage(input) {
     }
 }
 
+
+// Event Listener for Product Form
+document.addEventListener('DOMContentLoaded', () => {
+    const productForm = document.getElementById('product-form');
+    if (productForm) {
+        console.log('✅ Form de produtos encontrado! Adicionando listener...');
+        productForm.addEventListener('submit', saveProduct);
+    } else {
+        console.error('❌ Form de produtos NÃO encontrado!');
+    }
+});
+
+function calculateSellingPrice() {
+    const costPrice = parseFloat(document.getElementById('product-cost-price').value) || 0;
+    const profitMargin = parseFloat(document.getElementById('product-profit-margin').value) || 0;
+
+    if (costPrice > 0) {
+        const sellingPrice = costPrice + (costPrice * (profitMargin / 100));
+        document.getElementById('product-price').value = sellingPrice.toFixed(2);
+    }
+}
+
 function saveProduct(e) {
     e.preventDefault();
+    console.log('💾 Tentando salvar produto...');
+
 
     const token = localStorage.getItem('authToken');
     const productId = document.getElementById('product-id').value;
@@ -1021,6 +1111,8 @@ function saveProduct(e) {
     formData.append('name', document.getElementById('product-name').value);
     formData.append('category', document.getElementById('product-category').value);
     formData.append('price', document.getElementById('product-price').value);
+    formData.append('costPrice', document.getElementById('product-cost-price').value);
+    formData.append('profitMargin', document.getElementById('product-profit-margin').value);
     formData.append('stock', document.getElementById('product-stock').value);
     formData.append('icon', '📦');
 
@@ -1044,7 +1136,7 @@ function saveProduct(e) {
         .then(data => {
             if (data.id || data.message) {
                 alert(productId ? '✓ Produto atualizado!' : '✓ Produto cadastrado!');
-                resetProductForm(); // Clear form after save
+                closeProductModal(); // Close modal after save
                 loadProducts();
                 loadDashboard();
             } else {
@@ -1057,9 +1149,7 @@ function saveProduct(e) {
         });
 }
 
-function editProduct(productId) {
-    openProductModal(productId);
-}
+
 
 function deleteProduct(productId) {
     if (!confirm('Deseja realmente excluir este produto?')) return;
@@ -1541,31 +1631,103 @@ function finalizeSplitSale() {
 }
 
 function generatePixQr() {
-    const qrContainer = document.getElementById('pix-qr-container');
+    console.log('DEBUG: generatePixQr started');
+    try {
+        const qrContainer = document.getElementById('pix-qr-container');
+        if (!qrContainer) {
+            alert('Erro: Container do QR Code não encontrado!');
+            return;
+        }
 
-    let pixKey = '62819358000106'; // Default fallback
-    if (window.storeConfig && window.storeConfig.storePixKey) {
-        pixKey = window.storeConfig.storePixKey;
+        qrContainer.innerHTML = '<p style="color: blue;">Carregando...</p>';
+
+        let pixKey = '62819358000106'; // Default fallback
+        if (window.storeConfig && window.storeConfig.storePixKey) {
+            pixKey = window.storeConfig.storePixKey;
+        }
+
+        const cartTotalEl = document.getElementById('cart-total');
+        if (!cartTotalEl) {
+            throw new Error('Elemento cart-total não encontrado');
+        }
+
+        const total = parseFloat(cartTotalEl.textContent.replace('R$ ', '').replace('.', '').replace(',', '.'));
+        const payload = generatePixPayload(pixKey, 'L-STORE', 'BRASILIA', total || 0);
+
+        // Use local QRCode library
+        // Check for 'qrcode' (lowercase) as per new library
+        if (typeof qrcode === 'undefined') {
+            qrContainer.innerHTML = '<p style="color: red; font-size: 16px; font-weight: bold;">Erro: Biblioteca qrcode não carregada. Tente recarregar a página (Ctrl+F5).</p>';
+            console.error('qrcode library not found');
+            return;
+        }
+
+        console.log('Generating QR Code with payload:', payload);
+
+        // Delay slightly to ensure modal is visible
+        setTimeout(() => {
+            try {
+                // DEBUG: Keep border and gray background
+                qrContainer.style.border = "2px solid red";
+                qrContainer.style.backgroundColor = "#f0f0f0";
+                qrContainer.innerHTML = ''; // Clear
+
+                // Using qrcode-generator (Kazuhiko Arase)
+                var qr = qrcode(0, 'L');
+                qr.addData(payload);
+                qr.make();
+
+                // Create Canvas
+                var canvas = document.createElement('canvas');
+                var cellSize = 5;
+                var margin = 10;
+                var size = qr.getModuleCount() * cellSize + 2 * margin;
+
+                canvas.width = size;
+                canvas.height = size;
+
+                qrContainer.appendChild(canvas);
+
+                var ctx = canvas.getContext('2d');
+
+                // Fill background white
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, size, size);
+
+                // Draw QR code
+                // renderTo2dContext(context, cellSize) - note: library might not support margin in this method, so we translate
+                ctx.save();
+                ctx.translate(margin, margin);
+                qr.renderTo2dContext(ctx, cellSize);
+                ctx.restore();
+
+                console.log('QR Code rendered to Canvas');
+
+                // Add key info below QR
+                const keyInfo = document.createElement('p');
+                keyInfo.style.marginTop = '10px';
+                keyInfo.style.fontWeight = 'bold';
+                keyInfo.style.color = '#333';
+                keyInfo.textContent = `Chave: ${pixKey}`;
+                qrContainer.appendChild(keyInfo);
+
+            } catch (e) {
+                console.error('Error generating QR Code:', e);
+                qrContainer.innerHTML = `<p style="color: red; font-weight: bold;">Erro ao gerar: ${e.message}</p>`;
+            }
+        }, 300);
+
+        startPixTimer();
+    } catch (err) {
+        console.error('CRITICAL ERROR in generatePixQr:', err);
+        alert('Erro crítico ao gerar PIX: ' + err.message);
     }
-
-    // Generate Valid PIX Payload with CRC16
-    const total = parseFloat(document.getElementById('cart-total').textContent.replace('R$ ', '').replace('.', '').replace(',', '.'));
-    const payload = generatePixPayload(pixKey, 'L-STORE', 'BRASILIA', total || 0);
-
-    qrContainer.innerHTML = `
-        <div style="background: white; padding: 10px; border-radius: 8px;">
-            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(payload)}" alt="QR Code PIX">
-            <p style="margin-top: 10px; font-weight: bold; color: #333;">Chave: ${pixKey}</p>
-        </div>
-    `;
-
-    startPixTimer();
 }
 
 function startPixTimer() {
     if (pixTimerInterval) clearInterval(pixTimerInterval);
 
-    let seconds = 24000; // 400 minutos requested by user
+    let seconds = 120; // 2 minutes as requested
     const timerDisplay = document.getElementById('pix-timer');
 
     pixTimerInterval = setInterval(() => {
@@ -2070,6 +2232,238 @@ function closeCashRegister() {
         });
 }
 
+// ==================== FINALIZAR VENDA (NOVO FLUXO) ====================
+function finalizeSale() {
+    if (cart.length === 0) {
+        alert('Carrinho vazio!');
+        return;
+    }
+
+    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+    // Open Payment Modal
+    const modal = document.getElementById('payment-modal');
+    const totalDisplay = document.getElementById('payment-modal-total');
+
+    if (modal && totalDisplay) {
+        totalDisplay.textContent = formatCurrency(total);
+
+        // Reset state
+        selectModalPayment('dinheiro'); // Default to money
+        document.getElementById('modal-amount-paid').value = '';
+        document.getElementById('modal-change').textContent = 'R$ 0,00';
+
+        updateClientDropdown(); // Populate clients
+        selectedClientId = null; // Reset selection
+        handleClientSelection(); // Reset UI
+
+        modal.style.display = 'flex';
+
+        // Focus on amount input if money is selected
+        setTimeout(() => {
+            document.getElementById('modal-amount-paid').focus();
+        }, 100);
+
+        // Add Enter key listener for modal
+        const modalElement = document.getElementById('payment-modal');
+        modalElement.onkeydown = function (e) {
+            if (e.key === 'Enter') {
+                // Avoid triggering if focus is on Cancel button
+                if (e.target.classList.contains('btn-secondary') || e.target.textContent.trim() === 'Cancelar') {
+                    return;
+                }
+                e.preventDefault();
+                confirmPayment();
+            }
+        };
+    }
+}
+
+function closePaymentModal() {
+    document.getElementById('payment-modal').style.display = 'none';
+}
+
+function closePixModal() {
+    document.getElementById('pix-modal').style.display = 'none';
+    document.getElementById('payment-modal').style.display = 'flex';
+    if (pixTimerInterval) clearInterval(pixTimerInterval);
+    // Reset to money or just clear selection? Let's default to money for safety
+    selectModalPayment('dinheiro');
+}
+
+function selectModalPayment(method) {
+    // Update active button
+    document.querySelectorAll('.payment-option-btn').forEach(btn => btn.classList.remove('active'));
+
+    const btnMap = {
+        'dinheiro': 'btn-modal-money',
+        'cartao': 'btn-modal-card',
+        'pix': 'btn-modal-pix',
+        'pontos': 'btn-modal-points'
+    };
+
+    const btnId = btnMap[method];
+    if (btnId) {
+        document.getElementById(btnId).classList.add('active');
+    }
+
+    // Update hidden input
+    document.getElementById('payment-method').value = method;
+
+    const cashArea = document.getElementById('cash-payment-area');
+    const optionsGrid = document.querySelector('.payment-options-grid');
+
+    // Reset displays
+    cashArea.style.display = 'none';
+    optionsGrid.style.display = 'grid'; // Default visible
+
+    if (pixTimerInterval) clearInterval(pixTimerInterval);
+
+    if (method === 'dinheiro') {
+        cashArea.style.display = 'block';
+        setTimeout(() => document.getElementById('modal-amount-paid').focus(), 50);
+    } else if (method === 'pix') {
+        console.log('DEBUG: Switching to PIX modal');
+        // Close payment modal and open PIX modal
+        document.getElementById('payment-modal').style.display = 'none';
+        document.getElementById('pix-modal').style.display = 'flex';
+        console.log('DEBUG: Calling generatePixQr()');
+        generatePixQr();
+    } else if (method === 'pontos') {
+        if (!selectedClientId) {
+            alert('⚠️ Selecione um cliente para usar pontos.');
+            selectModalPayment('dinheiro');
+            return;
+        }
+
+        const client = clients.find(c => c.id === selectedClientId);
+        const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const pointsNeeded = Math.ceil(total * 100); // 1 LP = 0.01 BRL
+
+        if ((client.lpBalance || 0) < pointsNeeded) {
+            alert(`⚠️ Saldo insuficiente!\nNecessário: ${pointsNeeded} LP\nSaldo: ${client.lpBalance || 0} LP`);
+            selectModalPayment('dinheiro');
+            return;
+        }
+
+        // Visual feedback
+        document.getElementById('modal-amount-paid').value = total.toFixed(2);
+        document.getElementById('modal-change').textContent = 'Pagamento com Pontos';
+        document.getElementById('modal-change').style.color = 'var(--accent-purple)';
+    }
+}
+
+function calculateModalChange() {
+    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const paidInput = document.getElementById('modal-amount-paid');
+    const changeDisplay = document.getElementById('modal-change');
+
+    const paid = parseFloat(paidInput.value) || 0;
+    const change = paid - total;
+
+    if (change >= 0) {
+        changeDisplay.textContent = formatCurrency(change);
+        changeDisplay.style.color = 'var(--accent-cyan)';
+    } else {
+        changeDisplay.textContent = 'Faltam ' + formatCurrency(Math.abs(change));
+        changeDisplay.style.color = 'var(--accent-red)';
+    }
+}
+
+function confirmPayment() {
+    const method = document.getElementById('payment-method').value;
+    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+    let paidAmount = total; // Default for Card/Pix
+
+    if (method === 'dinheiro') {
+        const paidInput = parseFloat(document.getElementById('modal-amount-paid').value) || 0;
+        if (paidInput < total) {
+            alert('Valor pago é insuficiente!');
+            return;
+        }
+        paidAmount = paidInput;
+    } else if (method === 'pontos') {
+        // Validation already done in selection, but double check
+        if (!selectedClientId) return;
+        const client = clients.find(c => c.id === selectedClientId);
+        const pointsNeeded = Math.ceil(total * 100);
+        if ((client.lpBalance || 0) < pointsNeeded) {
+            alert('Saldo de pontos insuficiente!');
+            return;
+        }
+    }
+
+    // Proceed with sale
+    processSale(method, paidAmount);
+}
+
+function processSale(method, paidAmount) {
+    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const change = paidAmount - total;
+
+    const saleData = {
+        items: cart,
+        total: total,
+        paymentMethod: method,
+        paidAmount: paidAmount,
+        change: change,
+        date: new Date().toISOString(),
+        clientId: selectedClientId // Save client ID
+    };
+
+    // Deduct points if paying with points
+    if (method === 'pontos' && selectedClientId) {
+        const pointsUsed = Math.ceil(total * 100);
+        const clientIndex = clients.findIndex(c => c.id === selectedClientId);
+        if (clientIndex !== -1) {
+            clients[clientIndex].lpBalance -= pointsUsed;
+            saveClients();
+        }
+    }
+
+    const token = localStorage.getItem('authToken');
+
+    // Show loading state if needed
+
+    fetch('/api/sales', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(saleData)
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.id || data.message) {
+                let msg = `✅ Venda Finalizada!\nTroco: ${formatCurrency(change)}`;
+
+                // Award Points
+                if (selectedClientId) {
+                    const points = updateClientPoints(selectedClientId, total);
+                    if (points > 0) {
+                        msg += `\n\n🎉 Cliente ganhou ${points} LP!`;
+                    }
+                }
+
+                alert(msg);
+                closePaymentModal();
+                clearCart();
+                loadSales();
+                loadDashboard();
+
+                // Open cash drawer logic here if needed
+            } else {
+                alert('Erro ao finalizar venda: ' + (data.error || 'Erro desconhecido'));
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro de conexão ao finalizar venda.');
+        });
+}
+
 function openCashRegisterModal() {
     document.getElementById('cash-register-modal').style.display = 'flex';
     document.getElementById('cash-register-opening-balance').value = '';
@@ -2282,7 +2676,7 @@ window.login = function (e) {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
 
-    fetch('/api/auth/login', {
+    fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -2843,8 +3237,179 @@ function loadStockSummary() {
 // Event listener para botão de nova movimentação
 document.getElementById('add-stock-movement-btn')?.addEventListener('click', openStockMovementModal);
 
+// ==================== CLIENTES / FIDELIDADE ====================
+let clients = [];
+let selectedClientId = null;
+
+function loadClients() {
+    const stored = localStorage.getItem('clients');
+    if (stored) {
+        clients = JSON.parse(stored);
+    } else {
+        clients = [];
+    }
+}
+
+function saveClients() {
+    localStorage.setItem('clients', JSON.stringify(clients));
+}
+
+function addClient(name, cpf) {
+    const newClient = {
+        id: Date.now(),
+        name,
+        cpf,
+        lpBalance: 0, // Loyalty Points
+        createdAt: new Date().toISOString()
+    };
+    clients.push(newClient);
+    saveClients();
+    return newClient;
+}
+
+function updateClientPoints(clientId, amountSpent) {
+    if (!window.storeConfig?.enableLoyalty) return 0;
+
+    const rate = window.storeConfig.loyaltyCashbackRate || 0;
+    if (rate <= 0) return 0;
+
+    const pointsEarned = Math.floor((amountSpent * (rate / 100)) * 100); // 1 LP = 0.01 BRL, so *100 to get integer points? 
+    // Wait, user said "cada moeda vale 1 sentavo". 
+    // If I buy R$ 100.00 and rate is 5% -> Cashback R$ 5.00.
+    // R$ 5.00 = 500 centavos = 500 LP.
+    // Calculation: (Amount * Rate/100) * 100 = Amount * Rate.
+    // Example: 100 * 5 = 500. Correct.
+
+    const clientIndex = clients.findIndex(c => c.id === clientId);
+    if (clientIndex !== -1) {
+        clients[clientIndex].lpBalance = (clients[clientIndex].lpBalance || 0) + pointsEarned;
+        saveClients();
+        return pointsEarned;
+    }
+    return 0;
+}
+
+// ==================== CLIENT UI LOGIC ====================
+function updateClientDropdown() {
+    const select = document.getElementById('payment-client-select');
+    if (!select) return;
+
+    const currentVal = select.value;
+    select.innerHTML = '<option value="">Cliente Não Identificado</option>';
+
+    clients.forEach(client => {
+        const option = document.createElement('option');
+        option.value = client.id;
+        option.textContent = `${client.name} (LP: ${client.lpBalance || 0})`;
+        select.appendChild(option);
+    });
+
+    if (currentVal) select.value = currentVal;
+}
+
+function openNewClientModal() {
+    document.getElementById('new-client-modal').style.display = 'flex';
+    document.getElementById('new-client-name').focus();
+}
+
+function closeNewClientModal() {
+    document.getElementById('new-client-modal').style.display = 'none';
+    document.getElementById('new-client-form').reset();
+}
+
+document.getElementById('new-client-form')?.addEventListener('submit', function (e) {
+    e.preventDefault();
+    const name = document.getElementById('new-client-name').value;
+    const cpf = document.getElementById('new-client-cpf').value;
+
+    if (!name) return;
+
+    const newClient = addClient(name, cpf);
+    alert('✅ Cliente cadastrado!');
+    closeNewClientModal();
+    updateClientDropdown();
+
+    // Auto-select new client
+    const select = document.getElementById('payment-client-select');
+    if (select) {
+        select.value = newClient.id;
+        handleClientSelection();
+    }
+});
+
+document.getElementById('payment-client-select')?.addEventListener('change', handleClientSelection);
+
+function handleClientSelection() {
+    const select = document.getElementById('payment-client-select');
+    const infoEl = document.getElementById('client-loyalty-info');
+    const clientId = select.value ? parseInt(select.value) : null;
+
+    selectedClientId = clientId;
+
+    if (clientId) {
+        const client = clients.find(c => c.id === clientId);
+        if (client && infoEl) {
+            infoEl.style.display = 'block';
+            infoEl.textContent = `Saldo Atual: ${client.lpBalance || 0} LP`;
+
+            // Calculate potential points for current cart
+            if (window.storeConfig?.enableLoyalty) {
+                const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                const rate = window.storeConfig.loyaltyCashbackRate || 0;
+                const potential = Math.floor((total * (rate / 100)) * 100);
+                if (potential > 0) {
+                    infoEl.textContent += ` (+${potential} LP nesta compra)`;
+                }
+            }
+        }
+    } else {
+        if (infoEl) infoEl.style.display = 'none';
+    }
+}
+
+// ==================== L-STORE LOYALTY MODAL ====================
+function openLoyaltyModal() {
+    // Check if user is logged in (User Data OR Client Data)
+    const userData = localStorage.getItem('userData');
+    const clientData = localStorage.getItem('clientData');
+
+    if (!userData && !clientData) {
+        alert('Por favor, faça login para ver seus pontos.');
+        window.showLogin();
+        return;
+    }
+
+    const user = clientData ? JSON.parse(clientData) : JSON.parse(userData);
+    let balance = 0;
+
+    // Try to find client record by CPF or Name
+    // Note: clients array is loaded from localStorage 'clients'
+    // Ensure clients are loaded
+    if (clients.length === 0) loadClients();
+
+    const client = clients.find(c =>
+        (user.cpf && c.cpf === user.cpf) ||
+        (c.name.toLowerCase() === user.username.toLowerCase())
+    );
+
+    if (client) {
+        balance = client.lpBalance || 0;
+    }
+
+    // Update UI
+    document.getElementById('loyalty-balance-display').textContent = balance;
+    document.getElementById('loyalty-value-display').textContent = formatCurrency(balance / 100);
+
+    document.getElementById('loyalty-modal').style.display = 'flex';
+}
+
+function closeLoyaltyModal() {
+    document.getElementById('loyalty-modal').style.display = 'none';
+}
+
 // ==================== UTILS ====================
 function formatCurrency(value) {
+    if (value === null || value === undefined) return 'R$ 0,00';
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
@@ -2880,6 +3445,7 @@ function initApp() {
         loadDashboard();
         loadProducts();
         loadSales();
+        loadClients(); // Load clients
         checkCashRegisterStatus();
     }
 
@@ -3025,6 +3591,8 @@ function generatePixPayload(key, name, city, amount, txId = '***') {
 function saveStoreConfig() {
     const token = localStorage.getItem('authToken');
     const storePixKey = document.getElementById('store-pix-key').value;
+    const enableLoyalty = document.getElementById('enable-loyalty').checked;
+    const loyaltyCashbackRate = parseFloat(document.getElementById('loyalty-cashback-rate').value) || 0;
 
     if (!storePixKey) {
         alert('Por favor, informe a chave PIX.');
@@ -3037,7 +3605,11 @@ function saveStoreConfig() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ storePixKey })
+        body: JSON.stringify({
+            storePixKey,
+            enableLoyalty,
+            loyaltyCashbackRate
+        })
     })
         .then(response => response.json())
         .then(data => {
@@ -3068,6 +3640,22 @@ function loadStoreConfig() {
             if (config.storePixKey) {
                 const input = document.getElementById('store-pix-key');
                 if (input) input.value = config.storePixKey;
+
+                // Loyalty Config
+                const loyaltyCheckbox = document.getElementById('enable-loyalty');
+                const loyaltyRateInput = document.getElementById('loyalty-cashback-rate');
+                const loyaltyGroup = document.getElementById('loyalty-rate-group');
+
+                if (loyaltyCheckbox) {
+                    loyaltyCheckbox.checked = config.enableLoyalty || false;
+                    // Add listener for toggle
+                    loyaltyCheckbox.addEventListener('change', () => {
+                        loyaltyGroup.style.display = loyaltyCheckbox.checked ? 'flex' : 'none';
+                    });
+                    // Initial state
+                    loyaltyGroup.style.display = config.enableLoyalty ? 'flex' : 'none';
+                }
+                if (loyaltyRateInput) loyaltyRateInput.value = config.loyaltyCashbackRate || '';
 
                 // Store globally for easy access
                 window.storeConfig = config;

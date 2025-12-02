@@ -6,7 +6,7 @@ const dbPath = path.join(__dirname, 'main.db');
 const db = new sqlite3.Database(dbPath);
 
 const email = 'djleocv.hotmail.com@gmail.com';
-const password = '199412';
+const password = '123456';
 const username = 'Admin Leo'; // Default username if creating new
 
 const hashedPassword = bcrypt.hashSync(password, 10);
