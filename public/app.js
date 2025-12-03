@@ -336,59 +336,41 @@ function loginClient(e) {
         return;
     }
 
-    // Ensure clients are loaded
-    if (clients.length === 0) loadClients();
+    fetch('/api/client/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, pin })
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.token) {
+                // Login success
+                const clientData = {
+                    id: data.client.id,
+                    username: data.client.name,
+                    role: 'client',
+                    storeName: data.storeName,
+                    lpBalance: data.client.lpBalance || 0
+                };
 
-    // Find client by Name (case insensitive)
-    let client = clients.find(c => c.name.toLowerCase() === name.toLowerCase());
+                localStorage.setItem('clientToken', data.token);
+                localStorage.setItem('clientData', JSON.stringify(clientData));
 
-    if (client) {
-        // Client exists, check PIN (if we had PIN in client record)
-        // For now, we accept any PIN or we should verify if we added PIN to client record.
-        // Since we didn't add PIN to addClient yet, let's just log them in.
-        // Ideally we should add PIN to client structure.
+                // Initialize client cart if not exists
+                if (!localStorage.getItem('clientCart')) {
+                    localStorage.setItem('clientCart', JSON.stringify([]));
+                }
 
-        // Let's update client structure to include PIN if it doesn't have one?
-        // Or just proceed. The user said "criar hum nome", implying easy access.
-        // Let's assume PIN is just for "feeling secure" or we can save it now.
-        if (!client.pin) {
-            client.pin = pin; // Save PIN for future
-            saveClients();
-        } else if (client.pin !== pin) {
-            alert('❌ PIN incorreto!');
-            return;
-        }
-    } else {
-        // Create new client
-        if (confirm(`Cliente "${name}" não encontrado. Deseja criar um novo cadastro?`)) {
-            client = addClient(name, null); // CPF null for now
-            client.pin = pin; // Save PIN
-            saveClients();
-            alert('✅ Cliente cadastrado com sucesso!');
-        } else {
-            return;
-        }
-    }
-
-    // "Login" - Set client data in localStorage
-    const clientData = {
-        id: client.id,
-        username: client.name,
-        email: client.email || `${client.name.toLowerCase().replace(/\s/g, '')}@cliente.com`, // Dummy email
-        role: 'client',
-        lpBalance: client.lpBalance || 0
-    };
-
-    localStorage.setItem('clientToken', 'dummy-client-token'); // Mock token
-    localStorage.setItem('clientData', JSON.stringify(clientData));
-
-    // Initialize client cart
-    if (!localStorage.getItem('clientCart')) {
-        localStorage.setItem('clientCart', JSON.stringify([]));
-    }
-
-    // Redirect to client store
-    showClientStore();
+                // Redirect to client store
+                showClientStore();
+            } else {
+                alert('❌ ' + (data.error || 'Erro ao fazer login'));
+            }
+        })
+        .catch(err => {
+            console.error('Erro no login:', err);
+            alert('❌ Erro de conexão com o servidor');
+        });
 }
 
 // ==================== CLIENT ONLINE STORE FUNCTIONS ====================
@@ -403,6 +385,13 @@ function showClientStore() {
 
     // Show client store
     document.getElementById('client-store-screen').style.display = 'flex';
+
+    // Update Store Name
+    const clientData = JSON.parse(localStorage.getItem('clientData') || '{}');
+    if (clientData.storeName) {
+        const titleEl = document.getElementById('store-header-title');
+        if (titleEl) titleEl.innerHTML = `<i class="ph ph-storefront"></i> ${clientData.storeName}`;
+    }
 
     // Load cart from localStorage
     const savedCart = localStorage.getItem('clientCart');
@@ -441,6 +430,7 @@ function loadStoreProducts() {
         .then(products => {
             storeProducts = products; // Save for search
             renderStoreProducts(products);
+            updatePromoBanner(); // Update banner with promos
         })
         .catch(err => console.error('Erro ao carregar produtos:', err));
 }
@@ -484,18 +474,27 @@ function renderStoreProducts(products) {
         };
 
         const isOutOfStock = product.stock <= 0;
+        const isPromo = product.isPromotion === 1 && product.promotionPrice;
 
         card.innerHTML = `
             ${product.image ?
                 `<img src="${product.image}" alt="${product.name}" class="product-image">` :
                 `<div class="product-image" style="display: flex; align-items: center; justify-content: center; font-size: 3rem;">${product.icon || '📦'}</div>`
             }
+            ${product.loyalty_points > 0 ? `<div style="position: absolute; top: 10px; right: 10px; background: var(--accent-orange); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"><i class="ph ph-star"></i> +${product.loyalty_points} LP</div>` : ''}
+            ${isPromo ? `<div style="position: absolute; top: 10px; left: 10px; background: var(--accent-pink); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"><i class="ph ph-tag"></i> PROMO</div>` : ''}
             <div class="store-badge">L-Store</div>
             <div class="product-info">
                 <div class="product-name">${product.name}</div>
-                <div class="product-price-row">
-                    <div class="product-price">R$ ${parseFloat(product.price).toFixed(2)}</div>
-                    <span class="owner-name">${product.ownerName || 'Loja'}</span>
+                <div class="product-price-row" style="flex-direction: column; align-items: flex-start;">
+                    ${isPromo ?
+                `<div style="display: flex; align-items: center; gap: 8px;">
+                            <div class="product-price" style="color: var(--accent-pink);">R$ ${parseFloat(product.promotionPrice).toFixed(2)}</div>
+                            <div class="product-old-price" style="text-decoration: line-through; color: #888; font-size: 0.9rem;">R$ ${parseFloat(product.price).toFixed(2)}</div>
+                         </div>`
+                : `<div class="product-price">R$ ${parseFloat(product.price).toFixed(2)}</div>`
+            }
+                    <span class="owner-name" style="margin-left: 0;">${product.ownerName || 'Loja'}</span>
                 </div>
                 <div class="product-actions">
                     <span class="product-stock">${isOutOfStock ? 'Esgotado' : `${product.stock} disponíveis`}</span>
@@ -508,6 +507,49 @@ function renderStoreProducts(products) {
 
         grid.appendChild(card);
     });
+}
+
+function updatePromoBanner() {
+    const bannerList = document.getElementById('promo-products-list');
+    const bannerSubtitle = document.getElementById('banner-subtitle');
+    if (!bannerList) return;
+
+    bannerList.innerHTML = '';
+
+    if (!storeProducts) return;
+
+    const promoProducts = storeProducts.filter(p => p.isPromotion === 1);
+
+    if (promoProducts.length > 0) {
+        bannerSubtitle.textContent = 'Aproveite nossas ofertas exclusivas!';
+
+        promoProducts.forEach(product => {
+            const item = document.createElement('div');
+            item.className = 'promo-banner-item';
+            item.style.cssText = 'min-width: 120px; background: rgba(255,255,255,0.1); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: transform 0.2s;';
+            item.onmouseover = () => item.style.transform = 'scale(1.05)';
+            item.onmouseout = () => item.style.transform = 'scale(1)';
+            item.onclick = () => openProductDetails(product);
+
+            item.innerHTML = `
+                ${product.image ?
+                    `<img src="${product.image}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; margin-bottom: 5px;">` :
+                    `<div style="font-size: 2rem; margin-bottom: 5px;">${product.icon || '📦'}</div>`
+                }
+                <div style="font-size: 0.8rem; font-weight: bold; color: white; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">${product.name}</div>
+                <div style="font-size: 0.9rem; color: var(--accent-green); font-weight: 800;">R$ ${parseFloat(product.promotionPrice).toFixed(2)}</div>
+            `;
+            bannerList.appendChild(item);
+        });
+    } else {
+        bannerSubtitle.textContent = 'Compre agora e economize!';
+    }
+}
+
+function filterStorePromotions() {
+    if (!storeProducts) return;
+    const promoProducts = storeProducts.filter(p => p.isPromotion === 1);
+    renderStoreProducts(promoProducts);
 }
 
 function openProductDetails(product) {
@@ -753,34 +795,131 @@ function closeClientPixModal() {
 }
 
 function confirmClientPixPayment() {
-    closeClientPixModal();
-    processClientOrder('pix');
+    // Legacy support or direct confirmation if needed
+    // But now we redirect to Delivery Modal
+    openDeliveryModal();
 }
 
-function processClientOrder(paymentMethod) {
+// ==================== DELIVERY & PROOF FLOW ====================
+let selectedDeliveryMethod = 'pickup'; // Default
+
+function openDeliveryModal() {
+    closeClientPixModal();
+    document.getElementById('client-delivery-modal').style.display = 'flex';
+}
+
+function closeDeliveryModal() {
+    document.getElementById('client-delivery-modal').style.display = 'none';
+    showClientPixModal(); // Go back to PIX
+}
+
+function selectDeliveryMethod(method) {
+    selectedDeliveryMethod = method;
+    closeDeliveryModal();
+    openProofModal();
+}
+
+function openProofModal() {
+    document.getElementById('client-proof-modal').style.display = 'flex';
+    // Reset form
+    document.getElementById('proof-form').reset();
+    document.getElementById('proof-preview').style.display = 'none';
+    document.getElementById('proof-preview').src = '';
+}
+
+function closeProofModal() {
+    document.getElementById('client-proof-modal').style.display = 'none';
+    openDeliveryModal(); // Go back to Delivery
+}
+
+function previewProof(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const img = document.getElementById('proof-preview');
+            img.src = e.target.result;
+            img.style.display = 'block';
+        }
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+function submitProof(e) {
+    e.preventDefault();
+    const fileInput = document.getElementById('proof-file-input');
+
+    if (!fileInput.files || !fileInput.files[0]) {
+        alert('⚠️ Por favor, envie uma foto do comprovante.');
+        return;
+    }
+
+    processClientOrder('pix', fileInput.files[0]);
+}
+
+function processClientOrder(paymentMethod, proofFile = null) {
     const clientData = localStorage.getItem('clientData');
     const clientToken = localStorage.getItem('clientToken');
     const client = JSON.parse(clientData);
     const total = clientCart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
+    const formData = new FormData();
+    formData.append('clientId', client.id);
+    formData.append('items', JSON.stringify(clientCart));
+    formData.append('total', total);
+    formData.append('paymentMethod', paymentMethod);
+    formData.append('deliveryMethod', selectedDeliveryMethod);
+    formData.append('clientName', client.username || client.name);
+
+    if (proofFile) {
+        formData.append('proofImage', proofFile);
+    }
+
     // Create order
     fetch('/api/client/checkout', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
             'Authorization': `Bearer ${clientToken}`
+            // Content-Type is set automatically with FormData
         },
-        body: JSON.stringify({
-            clientId: client.id,
-            items: clientCart,
-            total: total,
-            paymentMethod: paymentMethod
-        })
+        body: formData
     })
         .then(response => response.json())
         .then(data => {
             if (data.orderId) {
-                alert(`✅ Pedido realizado com sucesso!\n\nPedido #${data.orderId}\nTotal: R$ ${total.toFixed(2)}\nPagamento: ${paymentMethod.toUpperCase()}`);
+                let msg = `✅ Pedido realizado com sucesso!\n\nPedido #${data.orderId}\nTotal: R$ ${total.toFixed(2)}\nPagamento: ${paymentMethod.toUpperCase()}`;
+
+                // Update LP if earned
+                if (data.earnedLP && data.earnedLP > 0) {
+                    msg += `\n\n⭐ Você ganhou ${data.earnedLP} pontos!`;
+
+                    // Update clientData in localStorage
+                    if (clientData) {
+                        const updatedClient = JSON.parse(clientData);
+                        updatedClient.lpBalance = (updatedClient.lpBalance || 0) + data.earnedLP;
+                        localStorage.setItem('clientData', JSON.stringify(updatedClient));
+
+                        // Update in clients list (localStorage)
+                        const storedClients = localStorage.getItem('clients');
+                        if (storedClients) {
+                            const clientsList = JSON.parse(storedClients);
+                            const clientIndex = clientsList.findIndex(c => c.id === updatedClient.id);
+                            if (clientIndex !== -1) {
+                                clientsList[clientIndex].lpBalance = updatedClient.lpBalance;
+                                localStorage.setItem('clients', JSON.stringify(clientsList));
+                            }
+                        }
+
+                        // Update global clients array if it exists
+                        if (typeof clients !== 'undefined') {
+                            const clientIndex = clients.findIndex(c => c.id === updatedClient.id);
+                            if (clientIndex !== -1) {
+                                clients[clientIndex].lpBalance = updatedClient.lpBalance;
+                            }
+                        }
+                    }
+                }
+
+                alert(msg);
 
                 // Clear cart
                 clientCart = [];
@@ -851,7 +990,15 @@ function showClientProfile() {
     const clientData = localStorage.getItem('clientData');
     if (clientData) {
         const client = JSON.parse(clientData);
-        document.getElementById('client-profile-name').textContent = client.name;
+        document.getElementById('client-profile-name').textContent = client.username || client.name;
+
+        // Display Store Name
+        if (client.storeName) {
+            document.getElementById('client-profile-store').textContent = `Loja: ${client.storeName}`;
+            document.getElementById('client-profile-store').style.display = 'block';
+        } else {
+            document.getElementById('client-profile-store').style.display = 'none';
+        }
     }
 }
 
@@ -925,6 +1072,7 @@ function loadDashboard() {
 
 // ==================== PRODUTOS ====================
 function loadProducts() {
+    console.log('🚀 loadProducts called');
     const token = localStorage.getItem('authToken');
 
     fetch('/api/products', {
@@ -935,6 +1083,7 @@ function loadProducts() {
             return response.json();
         })
         .then(products => {
+            console.log('📦 Products fetched:', products);
             allProducts = products; // Store for search
             renderProductsTable(products);
         })
@@ -968,12 +1117,17 @@ function filterProductsList() {
 }
 
 function renderProductsTable(productsToRender) {
+    console.log('🎨 renderProductsTable called with:', productsToRender);
     const tbody = document.getElementById('products-table-body');
-    if (!tbody) return;
+    if (!tbody) {
+        console.error('❌ tbody products-table-body NOT FOUND');
+        return;
+    }
 
     tbody.innerHTML = '';
 
     if (!Array.isArray(productsToRender) || productsToRender.length === 0) {
+        console.warn('⚠️ No products to render');
         tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-secondary);">Nenhum produto encontrado.</td></tr>';
         return;
     }
@@ -1027,6 +1181,13 @@ function openProductModal(productId = null) {
                 document.getElementById('product-cost-price').value = product.costPrice || '';
                 document.getElementById('product-profit-margin').value = product.profitMargin || '';
                 document.getElementById('product-stock').value = product.stock;
+                document.getElementById('product-loyalty-points').value = product.loyalty_points || 0;
+
+                // Promotion Fields
+                const isPromo = product.isPromotion === 1;
+                document.getElementById('product-is-promotion').checked = isPromo;
+                document.getElementById('product-promotion-price').value = product.promotionPrice || '';
+                togglePromotionField();
 
                 if (product.image) {
                     document.getElementById('image-preview').src = product.image;
@@ -1044,9 +1205,23 @@ function openProductModal(productId = null) {
         title.innerHTML = '<i class="ph ph-plus-circle"></i> Novo Produto';
         form.reset();
         document.getElementById('product-id').value = '';
+        document.getElementById('product-loyalty-points').value = '0';
+        document.getElementById('product-is-promotion').checked = false;
+        togglePromotionField();
         document.getElementById('image-preview').src = '';
         document.getElementById('image-preview-container').style.display = 'none';
         modal.style.display = 'flex';
+    }
+}
+
+function togglePromotionField() {
+    const isPromotion = document.getElementById('product-is-promotion').checked;
+    const promoGroup = document.getElementById('product-promotion-price-group');
+    if (promoGroup) {
+        promoGroup.style.display = isPromotion ? 'flex' : 'none';
+        if (!isPromotion) {
+            document.getElementById('product-promotion-price').value = '';
+        }
     }
 }
 
@@ -1114,6 +1289,9 @@ function saveProduct(e) {
     formData.append('costPrice', document.getElementById('product-cost-price').value);
     formData.append('profitMargin', document.getElementById('product-profit-margin').value);
     formData.append('stock', document.getElementById('product-stock').value);
+    formData.append('loyalty_points', document.getElementById('product-loyalty-points').value);
+    formData.append('isPromotion', document.getElementById('product-is-promotion').checked ? 1 : 0);
+    formData.append('promotionPrice', document.getElementById('product-promotion-price').value);
     formData.append('icon', '📦');
 
     const imageFile = document.getElementById('product-image').files[0];
@@ -2997,8 +3175,8 @@ function loadStockSummary() {
             const zeroStock = products.filter(p => p.stock === 0).length;
 
             const totalEl = document.getElementById('total-stock-items');
-            const lowEl = document.getElementById('low-stock-count');
-            const zeroEl = document.getElementById('zero-stock-count');
+            const lowEl = document.getElementById('low-stock-products');
+            const zeroEl = document.getElementById('out-of-stock-products');
 
             if (totalEl) totalEl.textContent = totalItems;
             if (lowEl) lowEl.textContent = lowStock;
@@ -3011,6 +3189,8 @@ function loadStockSummary() {
 function loadStockMovements() {
     const token = localStorage.getItem('authToken');
     const tbody = document.getElementById('stock-movements-table-body');
+    const searchTerm = document.getElementById('stock-search')?.value.toLowerCase() || '';
+
     if (!tbody) return;
 
     fetch('/api/stock-movements', {
@@ -3020,12 +3200,16 @@ function loadStockMovements() {
         .then(movements => {
             tbody.innerHTML = '';
 
-            if (movements.length === 0) {
+            const filteredMovements = movements.filter(m =>
+                m.productName.toLowerCase().includes(searchTerm)
+            );
+
+            if (filteredMovements.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-secondary);">Nenhuma movimentação registrada</td></tr>';
                 return;
             }
 
-            movements.forEach(mov => {
+            filteredMovements.forEach(mov => {
                 const tr = document.createElement('tr');
                 const date = new Date(mov.createdAt);
 
@@ -3046,6 +3230,11 @@ function loadStockMovements() {
                     <td>${mov.previousStock}</td>
                     <td><strong>${mov.newStock}</strong></td>
                     <td>${mov.reason}</td>
+                     <td>
+                        <button class="btn-icon danger" onclick="deleteStockMovement(${mov.id})" title="Excluir">
+                            <i class="ph ph-trash"></i>
+                        </button>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -3054,6 +3243,34 @@ function loadStockMovements() {
         })
         .catch(err => console.error('Erro ao carregar movimentações:', err));
 }
+
+// Excluir movimentação de estoque
+function deleteStockMovement(id) {
+    if (!confirm('Tem certeza que deseja excluir esta movimentação? O estoque será revertido.')) return;
+
+    const token = localStorage.getItem('authToken');
+    fetch(`/api/stock-movements/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                alert('Movimentação excluída com sucesso!');
+                loadStockMovements();
+                loadStockSummary();
+                loadProducts();
+            } else {
+                alert('Erro ao excluir: ' + (data.error || 'Erro desconhecido'));
+            }
+        })
+        .catch(error => console.error('Erro:', error));
+}
+
+// Event listener para busca de estoque
+document.getElementById('stock-search')?.addEventListener('input', () => {
+    loadStockMovements();
+});
 
 // Abrir modal de movimentação
 function openStockMovementModal() {
@@ -3140,100 +3357,7 @@ document.getElementById('stock-movement-form')?.addEventListener('submit', funct
         });
 });
 
-// Carregar movimentações de estoque
-function loadStockMovements() {
-    const token = localStorage.getItem('authToken');
-    const searchTerm = document.getElementById('stock-search')?.value.toLowerCase() || '';
 
-    fetch('/api/stock-movements', {
-        headers: { 'Authorization': `Bearer ${token}` }
-    })
-        .then(response => response.json())
-        .then(movements => {
-            const tbody = document.getElementById('stock-movements-table-body');
-            if (!tbody) return;
-            tbody.innerHTML = '';
-
-            const filteredMovements = movements.filter(m =>
-                m.product_name.toLowerCase().includes(searchTerm)
-            );
-
-            filteredMovements.forEach(movement => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                <td>${new Date(movement.created_at).toLocaleString()}</td>
-                <td>${movement.product_name}</td>
-                <td>
-                    <span class="badge ${movement.type === 'entrada' ? 'success' : (movement.type === 'saida' ? 'danger' : 'warning')}">
-                        ${movement.type === 'entrada' ? 'Entrada' : (movement.type === 'saida' ? 'Saída' : 'Ajuste')}
-                    </span>
-                </td>
-                <td>${movement.quantity}</td>
-                <td>${movement.previous_stock}</td>
-                <td>${movement.new_stock}</td>
-                <td>${movement.reason}</td>
-                <td>
-                    <button class="btn-icon danger" onclick="deleteStockMovement(${movement.id})" title="Excluir">
-                        <i class="ph ph-trash"></i>
-                    </button>
-                </td>
-            `;
-                tbody.appendChild(row);
-            });
-        })
-        .catch(error => console.error('Erro ao carregar movimentações:', error));
-}
-
-// Excluir movimentação de estoque
-function deleteStockMovement(id) {
-    if (!confirm('Tem certeza que deseja excluir esta movimentação? O estoque será revertido.')) return;
-
-    const token = localStorage.getItem('authToken');
-    fetch(`/api/stock-movements/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-    })
-        .then(response => response.json())
-        .then(data => {
-            if (data.message) {
-                alert('Movimentação excluída com sucesso!');
-                loadStockMovements();
-                loadStockSummary();
-                loadProducts();
-            } else {
-                alert('Erro ao excluir: ' + (data.error || 'Erro desconhecido'));
-            }
-        })
-        .catch(error => console.error('Erro:', error));
-}
-
-// Event listener para busca de estoque
-document.getElementById('stock-search')?.addEventListener('input', () => {
-    loadStockMovements();
-});
-
-// Carregar resumo de estoque
-function loadStockSummary() {
-    const token = localStorage.getItem('authToken');
-    fetch('/api/products', {
-        headers: { 'Authorization': `Bearer ${token}` }
-    })
-        .then(response => response.json())
-        .then(products => {
-            const totalItems = products.reduce((acc, p) => acc + p.stock, 0);
-            const lowStock = products.filter(p => p.stock > 0 && p.stock <= 5).length;
-            const outOfStock = products.filter(p => p.stock === 0).length;
-
-            const totalEl = document.getElementById('total-stock-items');
-            const lowEl = document.getElementById('low-stock-products');
-            const outEl = document.getElementById('out-of-stock-products');
-
-            if (totalEl) totalEl.textContent = totalItems;
-            if (lowEl) lowEl.textContent = lowStock;
-            if (outEl) outEl.textContent = outOfStock;
-        })
-        .catch(error => console.error('Erro ao carregar resumo de estoque:', error));
-}
 // Event listener para botão de nova movimentação
 document.getElementById('add-stock-movement-btn')?.addEventListener('click', openStockMovementModal);
 
@@ -3392,7 +3516,9 @@ function openLoyaltyModal() {
         (c.name.toLowerCase() === user.username.toLowerCase())
     );
 
-    if (client) {
+    if (user.lpBalance !== undefined) {
+        balance = user.lpBalance;
+    } else if (client) {
         balance = client.lpBalance || 0;
     }
 
@@ -3674,3 +3800,205 @@ if (document.readyState === 'loading') {
 } else {
     initApp();
 }
+// ==================== STORE SETTINGS ====================
+
+function updateSellerPin() {
+    const pin = document.getElementById('store-seller-pin').value.trim();
+
+    if (!pin) {
+        alert('Por favor, digite um PIN.');
+        return;
+    }
+
+    const token = localStorage.getItem('authToken');
+    if (!token) return;
+
+    fetch('/api/settings/pin', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ pin })
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) throw new Error(data.error);
+            alert('✅ PIN atualizado com sucesso!');
+        })
+        .catch(err => {
+            console.error('Erro ao atualizar PIN:', err);
+            alert('❌ ' + err.message);
+        });
+}
+
+function saveStoreConfig() {
+    // Placeholder for other store config saving
+    const pixKey = document.getElementById('store-pix-key').value;
+    const enableLoyalty = document.getElementById('enable-loyalty').checked;
+    const cashbackRate = document.getElementById('loyalty-cashback-rate').value;
+
+    // Here we would save these to the backend if we had endpoints for them
+    // For now, just alert
+    alert('Configurações salvas (Simulação)!');
+}
+
+// ==================== POS ONLINE ORDERS LOGIC ====================
+let onlineOrdersInterval = null;
+
+function toggleOnlineOrdersPanel() {
+    const panel = document.getElementById('online-orders-panel');
+    if (panel.style.display === 'none' || panel.style.display === '') {
+        panel.style.display = 'flex';
+        fetchOnlineOrders();
+        startOnlineOrdersPolling();
+    } else {
+        panel.style.display = 'none';
+        if (onlineOrdersInterval) clearInterval(onlineOrdersInterval);
+    }
+}
+
+function startOnlineOrdersPolling() {
+    fetchOnlineOrders(); // Initial fetch
+    if (onlineOrdersInterval) clearInterval(onlineOrdersInterval);
+    onlineOrdersInterval = setInterval(fetchOnlineOrders, 30000); // Poll every 30s
+}
+
+function fetchOnlineOrders() {
+    const token = localStorage.getItem('authToken');
+    if (!token) return;
+
+    fetch('/api/pos/online-orders', {
+        headers: { 'Authorization': `Bearer ${token}` }
+    })
+        .then(res => res.json())
+        .then(orders => {
+            renderOnlineOrders(orders);
+            updateOnlineOrdersBadge(orders.length);
+        })
+        .catch(err => console.error('Error fetching online orders:', err));
+}
+
+function updateOnlineOrdersBadge(count) {
+    const badge = document.getElementById('online-orders-badge');
+    if (badge) {
+        badge.textContent = count;
+        badge.style.display = count > 0 ? 'inline-block' : 'none';
+    }
+}
+
+function renderOnlineOrders(orders) {
+    const container = document.getElementById('online-orders-list');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (orders.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; color: #999; margin-top: 2rem; display: flex; flex-direction: column; align-items: center; gap: 1rem;">
+                <i class="ph ph-check-circle" style="font-size: 3rem; color: #ddd;"></i>
+                <span>Nenhum pedido pendente</span>
+            </div>
+        `;
+        return;
+    }
+
+    orders.forEach(order => {
+        const card = document.createElement('div');
+        card.className = 'online-order-card';
+        card.style.cssText = 'background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: all 0.2s;';
+
+        const itemsList = order.items.map(item =>
+            `<div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: #555; margin-bottom: 4px;">
+                <span>${item.quantity}x ${item.name}</span>
+                <span>R$ ${(item.price * item.quantity).toFixed(2)}</span>
+            </div>`
+        ).join('');
+
+        const deliveryIcon = order.deliveryMethod === 'delivery' ? 'moped' : 'storefront';
+        const deliveryLabel = order.deliveryMethod === 'delivery' ? 'Entrega' : 'Retirada';
+        const deliveryColor = order.deliveryMethod === 'delivery' ? '#f97316' : '#06b6d4';
+
+        card.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.8rem; padding-bottom: 0.8rem; border-bottom: 1px dashed #eee;">
+                <div>
+                    <div style="font-weight: bold; font-size: 1.1rem; color: #1f2937;">${order.clientName || 'Cliente'}</div>
+                    <div style="font-size: 0.8rem; color: #6b7280;">Pedido #${order.id} • ${new Date(order.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+                </div>
+                <div style="background: ${deliveryColor}20; color: ${deliveryColor}; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; display: flex; align-items: center; gap: 4px;">
+                    <i class="ph ph-${deliveryIcon}"></i> ${deliveryLabel}
+                </div>
+            </div>
+
+            <div style="margin-bottom: 1rem; background: #f9fafb; padding: 0.8rem; border-radius: 8px;">
+                ${itemsList}
+                <div style="border-top: 1px solid #e5e7eb; margin-top: 0.5rem; padding-top: 0.5rem; display: flex; justify-content: space-between; font-weight: bold; color: #1f2937;">
+                    <span>Total</span>
+                    <span>R$ ${parseFloat(order.total).toFixed(2)}</span>
+                </div>
+            </div>
+
+            ${order.proofImage ?
+                `<div style="margin-bottom: 1rem;">
+                    <div style="font-size: 0.8rem; color: #6b7280; margin-bottom: 4px;">Comprovante:</div>
+                    <a href="${order.proofImage}" target="_blank" style="display: block; border-radius: 8px; overflow: hidden; border: 1px solid #e5e7eb;">
+                        <img src="${order.proofImage}" style="width: 100%; height: 100px; object-fit: cover; display: block;">
+                    </a>
+                </div>` :
+                `<div style="font-size: 0.8rem; color: #9ca3af; font-style: italic; margin-bottom: 1rem;">Sem comprovante</div>`
+            }
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                <button onclick="rejectOrder(${order.id})" style="padding: 0.6rem; border: 1px solid #fee2e2; background: white; color: #ef4444; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                    Recusar
+                </button>
+                <button onclick="confirmOrder(${order.id})" style="padding: 0.6rem; border: none; background: #10b981; color: white; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);">
+                    Confirmar
+                </button>
+            </div>
+        `;
+
+        container.appendChild(card);
+    });
+}
+
+function confirmOrder(orderId) {
+    if (!confirm('Confirmar este pedido? O status será alterado para concluído.')) return;
+
+    const token = localStorage.getItem('authToken');
+    fetch(`/api/pos/online-orders/${orderId}/confirm`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+    })
+        .then(res => res.json())
+        .then(data => {
+            alert('✅ ' + data.message);
+            fetchOnlineOrders(); // Refresh list
+        })
+        .catch(err => alert('Erro ao confirmar pedido'));
+}
+
+function rejectOrder(orderId) {
+    if (!confirm('Tem certeza que deseja recusar este pedido?')) return;
+
+    const token = localStorage.getItem('authToken');
+    fetch(`/api/pos/online-orders/${orderId}/reject`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+    })
+        .then(res => res.json())
+        .then(data => {
+            alert('Pedido recusado.');
+            fetchOnlineOrders(); // Refresh list
+        })
+        .catch(err => alert('Erro ao recusar pedido'));
+}
+
+
+
+// Start polling when dashboard loads or when switching to Caixa tab
+document.addEventListener('DOMContentLoaded', () => {
+    if (typeof startOnlineOrdersPolling === 'function') {
+        startOnlineOrdersPolling();
+    }
+});

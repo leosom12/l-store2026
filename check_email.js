@@ -4,7 +4,7 @@ const path = require('path');
 const MAIN_DB_PATH = path.join(__dirname, 'main.db');
 const db = new sqlite3.Database(MAIN_DB_PATH);
 
-const targetEmail = 'natansousatp@gmail.com';
+const targetEmail = 'djleocv.hotmail.com@gmail.com';
 
 db.serialize(() => {
     // Check Users

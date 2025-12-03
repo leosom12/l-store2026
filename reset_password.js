@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const db = new sqlite3.Database(path.join(__dirname, 'main.db'));
 
 const targetEmail = 'djleocv.hotmail.com@gmail.com';
-const newPassword = 'admin123';
+const newPassword = '199412';
 
 console.log(`--- RESET DE SENHA ---`);
 console.log(`Usuário: ${targetEmail}`);
