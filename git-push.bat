@@ -81,6 +81,6 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo Repositório: https://github.com/leosom12/L-PDV
+echo Repositório: https://github.com/leosom12/l-store2026
 echo.
 pause
