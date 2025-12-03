@@ -1,19 +1,17 @@
 const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
 
-const db = new sqlite3.Database('./main.db');
+const dbPath = path.join(__dirname, 'main.db');
+const db = new sqlite3.Database(dbPath);
 
-db.get('SELECT * FROM users WHERE email = ?', ['djleocv.hotmail.com@gmail.com'], (err, user) => {
-    if (err) {
-        console.error('Erro:', err);
-    } else if (user) {
-        console.log('✅ Usuário Admin encontrado:');
-        console.log('ID:', user.id);
-        console.log('Username:', user.username);
-        console.log('Email:', user.email);
-        console.log('Is Admin:', user.is_admin);
-        console.log('Created At:', user.created_at);
-    } else {
-        console.log('❌ Usuário admin não encontrado');
-    }
-    db.close();
+db.serialize(() => {
+    console.log("Checking Admin user (ID 1) in main.db...");
+    db.get("SELECT id, username, email, isAdmin, subscriptionStatus FROM users WHERE id = 1", (err, row) => {
+        if (err) {
+            console.error("Error:", err);
+        } else {
+            console.log("Admin User:", JSON.stringify(row, null, 2));
+        }
+        db.close();
+    });
 });

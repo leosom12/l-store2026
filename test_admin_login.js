@@ -1,40 +1,25 @@
 const axios = require('axios');
 
-const LOGIN_URL = 'http://localhost:3000/api/auth/login';
-const ADMIN_EMAIL = 'djleocv.hotmail.com@gmail.com';
-const ADMIN_PASSWORD = '199412';
+const loginUrl = 'http://localhost:3000/api/login';
+const credentials = {
+    email: 'djleocv.hotmail.com@gmail.com',
+    password: 'admin123'
+};
 
-async function testAdminLogin() {
-    try {
-        console.log(`Tentando login em ${LOGIN_URL}...`);
-        console.log(`Email: ${ADMIN_EMAIL}`);
+console.log(`Attempting login to ${loginUrl} with email: ${credentials.email}`);
 
-        const response = await axios.post(LOGIN_URL, {
-            email: ADMIN_EMAIL,
-            password: ADMIN_PASSWORD
-        });
-
-        if (response.status === 200 && response.data.token) {
-            console.log('✅ Login bem-sucedido!');
-            console.log('Token recebido:', response.data.token.substring(0, 20) + '...');
-            console.log('Dados do usuário:', response.data.user);
-
-            if (response.data.user.isAdmin) {
-                console.log('✅ Usuário identificado como ADMIN.');
-            } else {
-                console.error('❌ ERRO: Usuário NÃO é admin.');
-            }
-        } else {
-            console.error('❌ Falha no login. Resposta inesperada:', response.status, response.data);
-        }
-
-    } catch (error) {
+axios.post(loginUrl, credentials)
+    .then(response => {
+        console.log('Login Successful!');
+        console.log('Token:', response.data.token ? 'Received' : 'Missing');
+        console.log('User:', JSON.stringify(response.data.user, null, 2));
+    })
+    .catch(error => {
+        console.error('Login Failed!');
         if (error.response) {
-            console.error('❌ Erro na requisição:', error.response.status, error.response.data);
+            console.error('Status:', error.response.status);
+            console.error('Data:', error.response.data);
         } else {
-            console.error('❌ Erro de conexão:', error.message);
+            console.error('Error:', error.message);
         }
-    }
-}
-
-testAdminLogin();
+    });

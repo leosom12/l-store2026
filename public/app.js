@@ -17,6 +17,7 @@ let cart = [];
 let allProducts = []; // Store all products for client-side search
 let currentTab = 'dashboard';
 let pixTimerInterval = null;
+let currentUser = null;
 
 // ==================== INICIALIZAÇÃO ====================
 // ==================== INICIALIZAÇÃO ====================
@@ -1832,11 +1833,10 @@ function generatePixQr() {
         const total = parseFloat(cartTotalEl.textContent.replace('R$ ', '').replace('.', '').replace(',', '.'));
         const payload = generatePixPayload(pixKey, 'L-STORE', 'BRASILIA', total || 0);
 
-        // Use local QRCode library
-        // Check for 'qrcode' (lowercase) as per new library
-        if (typeof qrcode === 'undefined') {
-            qrContainer.innerHTML = '<p style="color: red; font-size: 16px; font-weight: bold;">Erro: Biblioteca qrcode não carregada. Tente recarregar a página (Ctrl+F5).</p>';
-            console.error('qrcode library not found');
+        // Use local QRCode library (qrcodejs)
+        if (typeof QRCode === 'undefined') {
+            qrContainer.innerHTML = '<p style="color: red; font-size: 16px; font-weight: bold;">Erro: Biblioteca QRCode não carregada. Tente recarregar a página (Ctrl+F5).</p>';
+            console.error('QRCode library not found');
             return;
         }
 
@@ -1845,47 +1845,39 @@ function generatePixQr() {
         // Delay slightly to ensure modal is visible
         setTimeout(() => {
             try {
-                // DEBUG: Keep border and gray background
-                qrContainer.style.border = "2px solid red";
-                qrContainer.style.backgroundColor = "#f0f0f0";
-                qrContainer.innerHTML = ''; // Clear
+                qrContainer.innerHTML = ''; // Clear container
+                qrContainer.style.border = "none";
+                qrContainer.style.backgroundColor = "transparent";
+                qrContainer.style.display = "flex";
+                qrContainer.style.flexDirection = "column";
+                qrContainer.style.alignItems = "center";
+                qrContainer.style.justifyContent = "center";
 
-                // Using qrcode-generator (Kazuhiko Arase)
-                var qr = qrcode(0, 'L');
-                qr.addData(payload);
-                qr.make();
+                // Create wrapper for QR to ensure centering
+                const qrWrapper = document.createElement('div');
+                qrWrapper.style.background = 'white';
+                qrWrapper.style.padding = '10px';
+                qrWrapper.style.borderRadius = '8px';
+                qrContainer.appendChild(qrWrapper);
 
-                // Create Canvas
-                var canvas = document.createElement('canvas');
-                var cellSize = 5;
-                var margin = 10;
-                var size = qr.getModuleCount() * cellSize + 2 * margin;
+                // Generate QR Code using qrcodejs
+                new QRCode(qrWrapper, {
+                    text: payload,
+                    width: 256,
+                    height: 256,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.M
+                });
 
-                canvas.width = size;
-                canvas.height = size;
-
-                qrContainer.appendChild(canvas);
-
-                var ctx = canvas.getContext('2d');
-
-                // Fill background white
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, size, size);
-
-                // Draw QR code
-                // renderTo2dContext(context, cellSize) - note: library might not support margin in this method, so we translate
-                ctx.save();
-                ctx.translate(margin, margin);
-                qr.renderTo2dContext(ctx, cellSize);
-                ctx.restore();
-
-                console.log('QR Code rendered to Canvas');
+                console.log('QR Code generated');
 
                 // Add key info below QR
                 const keyInfo = document.createElement('p');
-                keyInfo.style.marginTop = '10px';
+                keyInfo.style.marginTop = '15px';
                 keyInfo.style.fontWeight = 'bold';
                 keyInfo.style.color = '#333';
+                keyInfo.style.fontSize = '1.1rem';
                 keyInfo.textContent = `Chave: ${pixKey}`;
                 qrContainer.appendChild(keyInfo);
 
@@ -2854,6 +2846,14 @@ window.login = function (e) {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
 
+    // Show loading state if needed
+    const btn = e.target.querySelector('button[type="submit"]');
+    const originalText = btn ? btn.textContent : 'Entrar';
+    if (btn) {
+        btn.textContent = 'Entrando...';
+        btn.disabled = true;
+    }
+
     fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2873,24 +2873,19 @@ window.login = function (e) {
                 const appScreen = document.getElementById('app-screen');
                 const adminTab = document.getElementById('admin-nav-tab');
 
+                if (authScreen) authScreen.style.display = 'none';
+                if (appScreen) appScreen.style.display = 'block';
+
                 if (user.isAdmin) {
-                    // Admin
-                    if (authScreen) authScreen.style.display = 'none';
-                    if (appScreen) appScreen.style.display = 'block';
                     if (adminTab) adminTab.style.display = 'block';
-                    loadDashboard();
-                    loadProducts();
-                    loadSales();
                     loadAdminUsers();
                 } else {
-                    // Usuário regular
-                    if (authScreen) authScreen.style.display = 'none';
-                    if (appScreen) appScreen.style.display = 'block';
                     if (adminTab) adminTab.style.display = 'none';
-                    loadDashboard();
-                    loadProducts();
-                    loadSales();
                 }
+
+                loadDashboard();
+                loadProducts();
+                loadSales();
 
                 // Atualizar nome do usuário
                 const headerUsername = document.getElementById('header-username');
@@ -2902,7 +2897,13 @@ window.login = function (e) {
         })
         .catch(error => {
             console.error('Erro:', error);
-            alert('Erro ao fazer login');
+            alert('Erro ao fazer login: ' + error.message);
+        })
+        .finally(() => {
+            if (btn) {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
         });
 };
 
