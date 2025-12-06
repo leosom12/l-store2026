@@ -1,4 +1,4 @@
-// Carregar versão do sistema
+﻿// Carregar versão do sistema
 async function loadVersion() {
     try {
         const response = await fetch('/api/version');
@@ -12,14 +12,106 @@ async function loadVersion() {
     }
 }
 
+// ==================== AUTHENTICATION FUNCTIONS ====================
+function showLogin() {
+    document.getElementById('login-form').style.display = 'block';
+    document.getElementById('register-form').style.display = 'none';
+}
+
+function showRegister() {
+    document.getElementById('login-form').style.display = 'none';
+    document.getElementById('register-form').style.display = 'block';
+}
+
+function login(event) {
+    event.preventDefault();
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+
+    fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+    })
+        .then(res => res.json())
+        .then(data => {
+            if (data.token) {
+                localStorage.setItem('authToken', data.token);
+                localStorage.setItem('userData', JSON.stringify(data.user));
+                currentUser = data.user;
+
+                document.getElementById('auth-screen').style.display = 'none';
+                document.getElementById('app-screen').style.display = 'flex';
+
+                updateClock();
+                setInterval(updateClock, 1000);
+                checkServerStatus();
+                switchTab('dashboard');
+
+                const userInfo = document.getElementById('user-info');
+                if (userInfo) userInfo.textContent = `Olá, ${data.user.username}`;
+
+                if (typeof startOnlineOrdersPolling === 'function') {
+                    startOnlineOrdersPolling();
+                }
+            } else {
+                alert('Erro no login: ' + (data.error || 'Credenciais inválidas'));
+            }
+        })
+        .catch(err => {
+            console.error('Login error:', err);
+            alert('Erro de conexão ao tentar fazer login.');
+        });
+}
+
+function register(event) {
+    event.preventDefault();
+    const username = document.getElementById('register-username').value;
+    const pin = document.getElementById('register-pin').value;
+    const cpf = document.getElementById('register-cpf').value;
+    const email = document.getElementById('register-email').value;
+    const password = document.getElementById('register-password').value;
+
+    fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, pin, cpf, email, password })
+    })
+        .then(res => res.json())
+        .then(data => {
+            if (data.token) {
+                alert('Cadastro realizado com sucesso!');
+                localStorage.setItem('authToken', data.token);
+                localStorage.setItem('userData', JSON.stringify(data.user));
+                currentUser = data.user;
+
+                document.getElementById('auth-screen').style.display = 'none';
+                document.getElementById('app-screen').style.display = 'flex';
+
+                updateClock();
+                setInterval(updateClock, 1000);
+                checkServerStatus();
+                switchTab('dashboard');
+
+                const userInfo = document.getElementById('user-info');
+                if (userInfo) userInfo.textContent = `Olá, ${data.user.username}`;
+            } else {
+                alert('Erro no cadastro: ' + (data.error || 'Erro desconhecido'));
+            }
+        })
+        .catch(err => {
+            console.error('Register error:', err);
+            alert('Erro de conexão ao tentar cadastrar.');
+        });
+}
+
 // ==================== VARIÁVEIS GLOBAIS ====================
 let cart = [];
-let allProducts = []; // Store all products for client-side search
+let allProducts = [];
 let currentTab = 'dashboard';
 let pixTimerInterval = null;
 let currentUser = null;
 
-// ==================== INICIALIZAÇÃO ====================
 // ==================== INICIALIZAÇÃO ====================
 
 function updateClock() {
@@ -45,11 +137,11 @@ function calculateChange() {
     }
 
     // Auto-finalizar venda quando valor pago >= total
-    // Somente se houver itens no carrinho e método de pagamento for dinheiro
+    // Somente se houver itens no carrinho e mÃ©todo de pagamento for dinheiro
     const paymentMethod = document.getElementById('payment-method').value;
 
     if (paid >= total && total > 0 && cart.length > 0 && paymentMethod === 'dinheiro') {
-        // Pequeno delay para evitar múltiplas chamadas
+        // Pequeno delay para evitar mÃºltiplas chamadas
         clearTimeout(window.autoFinalizeTimeout);
         window.autoFinalizeTimeout = setTimeout(() => {
             finalizeSale();
@@ -57,7 +149,7 @@ function calculateChange() {
     }
 }
 
-// ==================== VERIFICAÇÃO DE SERVIDOR ====================
+// ==================== VERIFICAÃ‡ÃƒO DE SERVIDOR ====================
 function checkServerStatus() {
     fetch('/api/health')
         .then(response => {
@@ -92,8 +184,8 @@ function checkServerStatus() {
         });
 }
 
-// ==================== NAVEGAÇÃO ====================
-// ==================== NAVEGAÇÃO ====================
+// ==================== NAVEGAÃ‡ÃƒO ====================
+// ==================== NAVEGAÃ‡ÃƒO ====================
 function switchTab(tabName) {
     currentTab = tabName;
 
@@ -102,7 +194,7 @@ function switchTab(tabName) {
         tab.classList.remove('active');
     });
 
-    // Remover active de todos os botões de navegação
+    // Remover active de todos os botÃµes de navegaÃ§Ã£o
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active-green');
     });
@@ -113,23 +205,23 @@ function switchTab(tabName) {
         selectedTab.classList.add('active');
     }
 
-    // Adicionar active no botão selecionado
+    // Adicionar active no botÃ£o selecionado
     const selectedBtn = document.querySelector(`.nav-item[data-tab="${tabName}"]`);
     if (selectedBtn) {
         selectedBtn.classList.add('active-green');
     }
 
-    // Atualizar Título da Página
+    // Atualizar TÃ­tulo da PÃ¡gina
     const titles = {
-        'dashboard': 'Visão Geral',
+        'dashboard': 'VisÃ£o Geral',
         'caixa': 'Frente de Caixa',
         'products': 'Gerenciar Produtos',
-        'sales': 'Histórico de Vendas',
-        'reports': 'Relatórios',
+        'sales': 'HistÃ³rico de Vendas',
+        'reports': 'RelatÃ³rios',
         'financial': 'Financeiro',
         'boletos': 'Boletos',
         'debtors': 'Devedores',
-        'store': 'Configuração da Loja',
+        'store': 'ConfiguraÃ§Ã£o da Loja',
         'subscription': 'Assinatura',
         'accounting': 'Contabilidade',
         'estoque': 'Controle de Estoque'
@@ -137,7 +229,7 @@ function switchTab(tabName) {
     const pageTitle = document.getElementById('page-title');
     if (pageTitle) pageTitle.textContent = titles[tabName] || 'L-STORE';
 
-    // Carregar dados específicos da tab
+    // Carregar dados especÃ­ficos da tab
     if (tabName === 'dashboard') loadDashboard();
     if (tabName === 'products') loadProducts();
     if (tabName === 'sales') loadSales();
@@ -174,8 +266,8 @@ function loadDebtors() {
                         ${formatCurrency(debtor.debtAmount)}
                     </td>
                     <td>
-                        <button onclick="openDebtorModal(${debtor.id})" class="btn-icon">✏️</button>
-                        <button onclick="openPayDebtModal(${debtor.id}, '${debtor.name}', ${debtor.debtAmount})" class="btn-icon" title="Pagar Dívida">💰</button>
+                        <button onclick="openDebtorModal(${debtor.id})" class="btn-icon">âœï¸</button>
+                        <button onclick="openPayDebtModal(${debtor.id}, '${debtor.name}', ${debtor.debtAmount})" class="btn-icon" title="Pagar DÃ­vida">ðŸ’°</button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -192,7 +284,7 @@ function openDebtorModal(debtorId = null) {
     if (debtorId) {
         title.textContent = 'Editar Devedor';
         // Carregar dados (simulado, ideal seria fetch individual ou pegar da lista)
-        // Por simplificação, vamos buscar da lista já carregada se possível ou fazer fetch
+        // Por simplificaÃ§Ã£o, vamos buscar da lista jÃ¡ carregada se possÃ­vel ou fazer fetch
         // Vamos fazer fetch para garantir
         const token = localStorage.getItem('authToken');
         fetch('/api/debtors', { headers: { 'Authorization': `Bearer ${token}` } })
@@ -260,11 +352,11 @@ document.getElementById('debtor-form')?.addEventListener('submit', function (e) 
 
 function openPayDebtModal(id, name, currentDebt) {
     if (currentDebt <= 0) {
-        alert('Este cliente não possui dívidas.');
+        alert('Este cliente nÃ£o possui dÃ­vidas.');
         return;
     }
     document.getElementById('pay-debt-id').value = id;
-    document.getElementById('pay-debt-customer-name').textContent = `${name} - Dívida: ${formatCurrency(currentDebt)}`;
+    document.getElementById('pay-debt-customer-name').textContent = `${name} - DÃ­vida: ${formatCurrency(currentDebt)}`;
     document.getElementById('pay-debt-amount').max = currentDebt;
     document.getElementById('pay-debt-amount').value = '';
     document.getElementById('pay-debt-modal').style.display = 'flex';
@@ -298,7 +390,7 @@ document.getElementById('pay-debt-form')?.addEventListener('submit', function (e
                 alert('Erro: ' + data.error);
             }
         })
-        .catch(err => console.error('Erro ao pagar dívida:', err));
+        .catch(err => console.error('Erro ao pagar dÃ­vida:', err));
 });
 
 // ==================== LOGOUT ====================
@@ -365,12 +457,12 @@ function loginClient(e) {
                 // Redirect to client store
                 showClientStore();
             } else {
-                alert('❌ ' + (data.error || 'Erro ao fazer login'));
+                alert('âŒ ' + (data.error || 'Erro ao fazer login'));
             }
         })
         .catch(err => {
             console.error('Erro no login:', err);
-            alert('❌ Erro de conexão com o servidor');
+            alert('âŒ Erro de conexÃ£o com o servidor');
         });
 }
 
@@ -460,7 +552,7 @@ function renderStoreProducts(products) {
     grid.innerHTML = '';
 
     if (products.length === 0) {
-        grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #999; padding: 2rem;">Nenhum produto disponível</p>';
+        grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #999; padding: 2rem;">Nenhum produto disponÃ­vel</p>';
         return;
     }
 
@@ -480,7 +572,7 @@ function renderStoreProducts(products) {
         card.innerHTML = `
             ${product.image ?
                 `<img src="${product.image}" alt="${product.name}" class="product-image">` :
-                `<div class="product-image" style="display: flex; align-items: center; justify-content: center; font-size: 3rem;">${product.icon || '📦'}</div>`
+                `<div class="product-image" style="display: flex; align-items: center; justify-content: center; font-size: 3rem;">${product.icon || 'ðŸ“¦'}</div>`
             }
             ${product.loyalty_points > 0 ? `<div style="position: absolute; top: 10px; right: 10px; background: var(--accent-orange); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"><i class="ph ph-star"></i> +${product.loyalty_points} LP</div>` : ''}
             ${isPromo ? `<div style="position: absolute; top: 10px; left: 10px; background: var(--accent-pink); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"><i class="ph ph-tag"></i> PROMO</div>` : ''}
@@ -498,7 +590,7 @@ function renderStoreProducts(products) {
                     <span class="owner-name" style="margin-left: 0;">${product.ownerName || 'Loja'}</span>
                 </div>
                 <div class="product-actions">
-                    <span class="product-stock">${isOutOfStock ? 'Esgotado' : `${product.stock} disponíveis`}</span>
+                    <span class="product-stock">${isOutOfStock ? 'Esgotado' : `${product.stock} disponÃ­veis`}</span>
                     <button class="btn-add-cart" onclick="addToClientCart(${product.id})" ${isOutOfStock ? 'disabled' : ''}>
                         <i class="ph ph-shopping-cart-simple"></i> Adicionar
                     </button>
@@ -535,7 +627,7 @@ function updatePromoBanner() {
             item.innerHTML = `
                 ${product.image ?
                     `<img src="${product.image}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; margin-bottom: 5px;">` :
-                    `<div style="font-size: 2rem; margin-bottom: 5px;">${product.icon || '📦'}</div>`
+                    `<div style="font-size: 2rem; margin-bottom: 5px;">${product.icon || 'ðŸ“¦'}</div>`
                 }
                 <div style="font-size: 0.8rem; font-weight: bold; color: white; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">${product.name}</div>
                 <div style="font-size: 0.9rem; color: var(--accent-green); font-weight: 800;">R$ ${parseFloat(product.promotionPrice).toFixed(2)}</div>
@@ -560,7 +652,7 @@ function openProductDetails(product) {
     document.getElementById('detail-product-name').textContent = product.name;
     document.getElementById('detail-product-price').textContent = `R$ ${parseFloat(product.price).toFixed(2)}`;
     document.getElementById('detail-product-category').textContent = product.category || 'Geral';
-    document.getElementById('detail-product-stock').textContent = product.stock <= 0 ? 'Esgotado' : `${product.stock} unidades disponíveis`;
+    document.getElementById('detail-product-stock').textContent = product.stock <= 0 ? 'Esgotado' : `${product.stock} unidades disponÃ­veis`;
 
     const img = document.getElementById('detail-product-image');
     const placeholder = document.getElementById('detail-image-placeholder');
@@ -572,7 +664,7 @@ function openProductDetails(product) {
     } else {
         img.style.display = 'none';
         placeholder.style.display = 'block';
-        placeholder.textContent = product.icon || '📦';
+        placeholder.textContent = product.icon || 'ðŸ“¦';
     }
 
     // Setup Add Button
@@ -598,7 +690,7 @@ function addToClientCart(productId) {
     if (!token) token = localStorage.getItem('authToken');
 
     if (!token) {
-        alert('Erro: Você precisa estar logado.');
+        alert('Erro: VocÃª precisa estar logado.');
         return;
     }
 
@@ -609,12 +701,12 @@ function addToClientCart(productId) {
         .then(products => {
             const product = products.find(p => p.id === productId);
             if (!product) {
-                alert('❌ Produto não encontrado');
+                alert('âŒ Produto nÃ£o encontrado');
                 return;
             }
 
             if (product.stock <= 0) {
-                alert('❌ Produto esgotado');
+                alert('âŒ Produto esgotado');
                 return;
             }
 
@@ -625,7 +717,7 @@ function addToClientCart(productId) {
                 if (existingItem.quantity < product.stock) {
                     existingItem.quantity++;
                 } else {
-                    alert('⚠️ Quantidade máxima atingida');
+                    alert('âš ï¸ Quantidade mÃ¡xima atingida');
                     return;
                 }
             } else {
@@ -645,11 +737,11 @@ function addToClientCart(productId) {
             updateCartCount();
 
             // Show feedback
-            alert(`✅ ${product.name} adicionado ao carrinho!`);
+            alert(`âœ… ${product.name} adicionado ao carrinho!`);
         })
         .catch(err => {
             console.error('Erro:', err);
-            alert('❌ Erro ao adicionar ao carrinho');
+            alert('âŒ Erro ao adicionar ao carrinho');
         });
 }
 
@@ -691,7 +783,7 @@ function renderClientCart() {
         card.innerHTML = `
             ${item.image ?
                 `<img src="${item.image}" alt="${item.name}" class="cart-item-image">` :
-                `<div class="cart-item-image" style="display: flex; align-items: center; justify-content: center; font-size: 2rem;">${item.icon || '📦'}</div>`
+                `<div class="cart-item-image" style="display: flex; align-items: center; justify-content: center; font-size: 2rem;">${item.icon || 'ðŸ“¦'}</div>`
             }
             <div class="cart-item-details">
                 <div class="cart-item-name">${item.name}</div>
@@ -724,7 +816,7 @@ function changeClientCartQty(index, delta) {
     }
 
     if (newQty > item.maxStock) {
-        alert('⚠️ Quantidade máxima atingida');
+        alert('âš ï¸ Quantidade mÃ¡xima atingida');
         return;
     }
 
@@ -743,7 +835,7 @@ function removeFromClientCart(index) {
 
 function checkoutCart() {
     if (clientCart.length === 0) {
-        alert('❌ Carrinho vazio');
+        alert('âŒ Carrinho vazio');
         return;
     }
 
@@ -752,7 +844,7 @@ function checkoutCart() {
     const paymentMethod = document.getElementById('client-payment-method').value;
 
     if (!clientData || !clientToken) {
-        alert('❌ Erro: Faça login novamente');
+        alert('âŒ Erro: FaÃ§a login novamente');
         return;
     }
 
@@ -850,7 +942,7 @@ function submitProof(e) {
     const fileInput = document.getElementById('proof-file-input');
 
     if (!fileInput.files || !fileInput.files[0]) {
-        alert('⚠️ Por favor, envie uma foto do comprovante.');
+        alert('âš ï¸ Por favor, envie uma foto do comprovante.');
         return;
     }
 
@@ -886,12 +978,12 @@ function processClientOrder(paymentMethod, proofFile = null) {
     })
         .then(response => response.json())
         .then(data => {
-            if (data.orderId) {
-                let msg = `✅ Pedido realizado com sucesso!\n\nPedido #${data.orderId}\nTotal: R$ ${total.toFixed(2)}\nPagamento: ${paymentMethod.toUpperCase()}`;
+            if (data.saleId) {
+                let msg = `âœ… Pedido realizado com sucesso!\n\nPedido #${data.saleId}\nTotal: R$ ${total.toFixed(2)}\nPagamento: ${paymentMethod.toUpperCase()}`;
 
                 // Update LP if earned
                 if (data.earnedLP && data.earnedLP > 0) {
-                    msg += `\n\n⭐ Você ganhou ${data.earnedLP} pontos!`;
+                    msg += `\n\nâ­ VocÃª ganhou ${data.earnedLP} pontos!`;
 
                     // Update clientData in localStorage
                     if (clientData) {
@@ -929,12 +1021,12 @@ function processClientOrder(paymentMethod, proofFile = null) {
                 // Go to orders screen
                 viewClientOrders();
             } else {
-                alert('❌ ' + (data.error || 'Erro ao finalizar pedido'));
+                alert('âŒ ' + (data.error || 'Erro ao finalizar pedido'));
             }
         })
         .catch(err => {
             console.error('Erro:', err);
-            alert('❌ Erro ao conectar com o servidor');
+            alert('âŒ Erro ao conectar com o servidor');
         });
 }
 
@@ -1045,7 +1137,7 @@ function loadDashboard() {
             const headerPin = document.getElementById('header-user-pin');
 
             if (headerUsername) {
-                headerUsername.textContent = user.username || 'Usuário';
+                headerUsername.textContent = user.username || 'UsuÃ¡rio';
             }
 
             if (headerPin && user.pin) {
@@ -1073,7 +1165,7 @@ function loadDashboard() {
 
 // ==================== PRODUTOS ====================
 function loadProducts() {
-    console.log('🚀 loadProducts called');
+    console.log('ðŸš€ loadProducts called');
     const token = localStorage.getItem('authToken');
 
     fetch('/api/products', {
@@ -1084,16 +1176,16 @@ function loadProducts() {
             return response.json();
         })
         .then(products => {
-            console.log('📦 Products fetched:', products);
+            console.log('ðŸ“¦ Products fetched:', products);
             allProducts = products; // Store for search
             renderProductsTable(products);
         })
         .catch(error => {
-            console.error('❌ ERRO ao carregar produtos:', error);
+            console.error('âŒ ERRO ao carregar produtos:', error);
             alert('ERRO ao carregar produtos: ' + error.message);
             const tbody = document.getElementById('products-table-body');
             if (tbody) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--danger);">Erro ao carregar produtos. Tente recarregar a página.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--danger);">Erro ao carregar produtos. Tente recarregar a pÃ¡gina.</td></tr>';
             }
         });
 }
@@ -1118,24 +1210,24 @@ function filterProductsList() {
 }
 
 function renderProductsTable(productsToRender) {
-    console.log('🎨 renderProductsTable called with:', productsToRender);
+    console.log('ðŸŽ¨ renderProductsTable called with:', productsToRender);
     const tbody = document.getElementById('products-table-body');
     if (!tbody) {
-        console.error('❌ tbody products-table-body NOT FOUND');
+        console.error('âŒ tbody products-table-body NOT FOUND');
         return;
     }
 
     tbody.innerHTML = '';
 
     if (!Array.isArray(productsToRender) || productsToRender.length === 0) {
-        console.warn('⚠️ No products to render');
+        console.warn('âš ï¸ No products to render');
         tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-secondary);">Nenhum produto encontrado.</td></tr>';
         return;
     }
 
     productsToRender.forEach((product, index) => {
         const tr = document.createElement('tr');
-        let imageHtml = `<span style="font-size: 1.5rem;">${product.icon || '📦'}</span>`;
+        let imageHtml = `<span style="font-size: 1.5rem;">${product.icon || 'ðŸ“¦'}</span>`;
         if (product.image) {
             imageHtml = `<img src="${product.image}" alt="${product.name}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`;
         }
@@ -1148,8 +1240,8 @@ function renderProductsTable(productsToRender) {
             <td>${formatCurrency(product.price)}</td>
             <td class="${product.stock === 0 ? 'stock-zero' : product.stock <= 5 ? 'stock-low' : ''}">${product.stock}</td>
             <td>
-                <button onclick="editProduct(${product.id})" class="btn-icon">✏️</button>
-                <button onclick="deleteProduct(${product.id})" class="btn-icon">🗑️</button>
+                <button onclick="editProduct(${product.id})" class="btn-icon" style="background-color: #0ea5e9; color: white; padding: 8px 16px; border-radius: 6px; margin-right: 8px; width: auto; height: auto;" title="Editar"><i class="ph ph-pencil-simple" style="font-size: 1.2rem;"></i></button>
+                <button onclick="deleteProduct(${product.id})" class="btn-icon delete" style="background-color: #ef4444; color: white; padding: 8px 16px; border-radius: 6px; width: auto; height: auto;" title="Excluir"><i class="ph ph-trash" style="font-size: 1.2rem;"></i></button>
             </td>
         `;
         tbody.appendChild(tr);
@@ -1257,10 +1349,10 @@ function previewImage(input) {
 document.addEventListener('DOMContentLoaded', () => {
     const productForm = document.getElementById('product-form');
     if (productForm) {
-        console.log('✅ Form de produtos encontrado! Adicionando listener...');
+        console.log('âœ… Form de produtos encontrado! Adicionando listener...');
         productForm.addEventListener('submit', saveProduct);
     } else {
-        console.error('❌ Form de produtos NÃO encontrado!');
+        console.error('âŒ Form de produtos NÃƒO encontrado!');
     }
 });
 
@@ -1276,7 +1368,7 @@ function calculateSellingPrice() {
 
 function saveProduct(e) {
     e.preventDefault();
-    console.log('💾 Tentando salvar produto...');
+    console.log('ðŸ’¾ Tentando salvar produto...');
 
 
     const token = localStorage.getItem('authToken');
@@ -1293,7 +1385,7 @@ function saveProduct(e) {
     formData.append('loyalty_points', document.getElementById('product-loyalty-points').value);
     formData.append('isPromotion', document.getElementById('product-is-promotion').checked ? 1 : 0);
     formData.append('promotionPrice', document.getElementById('product-promotion-price').value);
-    formData.append('icon', '📦');
+    formData.append('icon', 'ðŸ“¦');
 
     const imageFile = document.getElementById('product-image').files[0];
     if (imageFile) {
@@ -1314,7 +1406,7 @@ function saveProduct(e) {
         .then(response => response.json())
         .then(data => {
             if (data.id || data.message) {
-                alert(productId ? '✓ Produto atualizado!' : '✓ Produto cadastrado!');
+                alert(productId ? 'âœ“ Produto atualizado!' : 'âœ“ Produto cadastrado!');
                 closeProductModal(); // Close modal after save
                 loadProducts();
                 loadDashboard();
@@ -1341,7 +1433,7 @@ function deleteProduct(productId) {
         .then(response => response.json())
         .then(data => {
             if (data.message) {
-                alert('✓ Produto excluído!');
+                alert('âœ“ Produto excluÃ­do!');
                 loadProducts();
                 loadDashboard();
             } else {
@@ -1386,7 +1478,7 @@ function scanProduct() {
                 addToCart(product);
                 document.getElementById('barcode-input').value = '';
             } else {
-                alert('❌ Produto não encontrado!');
+                alert('âŒ Produto nÃ£o encontrado!');
             }
         })
         .catch(error => {
@@ -1444,10 +1536,10 @@ function renderSearchResults(results) {
         div.className = 'search-result-item';
         div.innerHTML = `
             <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1;">
-                <span style="font-size: 1.2rem;">${product.icon || '📦'}</span>
+                <span style="font-size: 1.2rem;">${product.icon || 'ðŸ“¦'}</span>
                 <div style="flex: 1;">
                     <span class="search-result-name">${product.name}</span>
-                    <p style="font-size: 0.85rem; color: var(--text-secondary);">Cód: ${product.barcode}</p>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary);">CÃ³d: ${product.barcode}</p>
                 </div>
             </div>
             <span class="search-result-price">${formatCurrency(product.price)}</span>
@@ -1487,12 +1579,12 @@ function selectSearchedProduct(product) {
 function addToCart(product) {
     // Verificar estoque
     if (product.stock <= 0) {
-        alert('❌ PRODUTO SEM ESTOQUE! Venda bloqueada.');
+        alert('âŒ PRODUTO SEM ESTOQUE! Venda bloqueada.');
         return;
     }
 
     if (product.stock <= 5) {
-        alert(`⚠️ ALERTA DE ESTOQUE BAIXO!\nRestam apenas ${product.stock} unidades.`);
+        alert(`âš ï¸ ALERTA DE ESTOQUE BAIXO!\nRestam apenas ${product.stock} unidades.`);
     }
 
     const existingItem = cart.find(item => item.id === product.id);
@@ -1506,7 +1598,7 @@ function addToCart(product) {
             existingItem.name = product.name;
             existingItem.icon = product.icon;
         } else {
-            alert('⚠️ Estoque insuficiente!');
+            alert('âš ï¸ Estoque insuficiente!');
             return;
         }
     } else {
@@ -1544,19 +1636,19 @@ function updateCartDisplay() {
         const tr = document.createElement('tr');
         const imageHtml = item.image
             ? `<img src="${item.image}" alt="${item.name}" style="width: 30px; height: 30px; object-fit: cover; border-radius: 4px;">`
-            : `<span style="font-size: 1.2rem;">${item.icon || '📦'}</span>`;
+            : `<span style="font-size: 1.2rem;">${item.icon || 'ðŸ“¦'}</span>`;
 
         tr.innerHTML = `
             <td>${index + 1}</td>
-            <td>${imageHtml}</td>
+            <td>${item.image ? `<img src="${item.image}" alt="${item.name}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">` : `<span style="font-size: 2rem;">${item.icon || '📦'}</span>`}</td>
             <td>${item.id}</td>
             <td>${item.name}</td>
             <td>UN</td>
             <td>
-                <div class="qty-controls">
-                    <button class="btn-qty" onclick="changeQty(${index}, -1)">-</button>
-                    <input type="number" class="input-qty" value="${item.quantity}" min="1" onchange="updateQty(${index}, this.value)">
-                    <button class="btn-qty" onclick="changeQty(${index}, 1)">+</button>
+                <div class="qty-controls" style="display: flex; align-items: center; gap: 5px;">
+                    <button class="btn-qty" onclick="changeQty(${index}, -1)" style="width: 32px; height: 32px; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; padding: 0;">-</button>
+                    <input type="number" class="input-qty" value="${item.quantity}" min="1" onchange="updateQty(${index}, this.value)" style="width: 50px; height: 32px; text-align: center; font-size: 1.1rem;">
+                    <button class="btn-qty" onclick="changeQty(${index}, 1)" style="width: 32px; height: 32px; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; padding: 0;">+</button>
                 </div>
             </td>
             <td>${formatCurrency(item.price)}</td>
@@ -1585,7 +1677,7 @@ function changeQty(index, delta) {
 
     // Check stock if available
     if (cart[index].maxStock && newQty > cart[index].maxStock) {
-        alert(`⚠️ Estoque insuficiente! Máximo: ${cart[index].maxStock}`);
+        alert(`âš ï¸ Estoque insuficiente! MÃ¡ximo: ${cart[index].maxStock}`);
         return;
     }
 
@@ -1601,7 +1693,7 @@ function updateQty(index, value) {
 
     // Check stock if available
     if (cart[index].maxStock && newQty > cart[index].maxStock) {
-        alert(`⚠️ Estoque insuficiente! Máximo: ${cart[index].maxStock}`);
+        alert(`âš ï¸ Estoque insuficiente! MÃ¡ximo: ${cart[index].maxStock}`);
         newQty = cart[index].maxStock;
     }
 
@@ -1623,431 +1715,171 @@ function clearCart() {
 }
 
 function selectPaymentMethod(method, event) {
-    document.querySelectorAll('.payment-btn').forEach(btn => btn.classList.remove('active'));
-
-    // Se foi chamado pelo clique, usa o target, senão procura pelo método
     if (event) {
+        document.querySelectorAll('.payment-btn').forEach(btn => btn.classList.remove('active'));
         event.currentTarget.classList.add('active');
-    } else {
-        const btn = document.querySelector(`.payment-btn[data-method="${method}"]`);
-        if (btn) btn.classList.add('active');
     }
 
-    document.getElementById('payment-method').value = method;
+    // Redirect to new Modal Flow logic
+    // This allows the old sidebar buttons to trigger the new modal
+    finalizeSale();
 
-    // Lógica do PIX
-    const pixArea = document.getElementById('pix-payment-area');
-    if (method === 'pix') {
-        pixArea.style.display = 'block';
-        generatePixQr();
-    } else {
-        pixArea.style.display = 'none';
-        if (pixTimerInterval) clearInterval(pixTimerInterval);
-    }
-
-    // Lógica Misto
-    if (method === 'misto') {
-        openSplitPaymentModal();
-    }
+    // Select the specific method in the modal after a short delay
+    setTimeout(() => {
+        selectModalPayment(method);
+    }, 100);
 }
 
-// ==================== PAGAMENTO MISTO ====================
-let splitPayments = [];
-
-function openSplitPaymentModal() {
-    if (cart.length === 0) {
-        alert('⚠️ Carrinho vazio!');
-        return;
-    }
-
-    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    document.getElementById('split-total-amount').textContent = formatCurrency(total);
-
-    splitPayments = [];
-    updateSplitPaymentDisplay();
-
-    document.getElementById('split-payment-modal').style.display = 'flex';
-    document.getElementById('split-payment-amount').focus();
-}
-
-function closeSplitPaymentModal() {
-    document.getElementById('split-payment-modal').style.display = 'none';
-}
-
-function addSplitPayment() {
-    const method = document.getElementById('split-payment-method').value;
-    const amountInput = document.getElementById('split-payment-amount');
-    const amount = parseFloat(amountInput.value);
-
-    if (isNaN(amount) || amount <= 0) {
-        alert('Valor inválido');
-        return;
-    }
-
-    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const currentPaid = splitPayments.reduce((sum, p) => sum + p.amount, 0);
-    const remaining = total - currentPaid;
-
-    // Permitir adicionar mais que o restante apenas se for dinheiro (para troco)
-    if (method !== 'dinheiro' && amount > remaining) {
-        alert(`Valor excede o restante (${formatCurrency(remaining)})`);
-        return;
-    }
-
-    splitPayments.push({ method, amount });
-    amountInput.value = '';
-    updateSplitPaymentDisplay();
-}
-
-function updateSplitPaymentDisplay() {
-    const list = document.getElementById('split-payments-list');
-    list.innerHTML = '';
-
-    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    let paid = 0;
-
-    splitPayments.forEach((p, index) => {
-        paid += p.amount;
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${p.method.toUpperCase()}</td>
-            <td>${formatCurrency(p.amount)}</td>
-            <td><button class="btn-icon" onclick="removeSplitPayment(${index})" style="color: var(--danger);">🗑️</button></td>
-        `;
-        list.appendChild(tr);
-    });
-
-    const remaining = total - paid;
-    const remainingEl = document.getElementById('split-remaining-amount');
-    const changeEl = document.getElementById('split-change-display');
-    const finalizeBtn = document.getElementById('btn-finalize-split');
-
-    if (remaining > 0) {
-        remainingEl.textContent = formatCurrency(remaining);
-        remainingEl.style.color = 'var(--danger)';
-        changeEl.style.display = 'none';
-        finalizeBtn.disabled = true;
-    } else {
-        remainingEl.textContent = 'R$ 0,00';
-        remainingEl.style.color = 'var(--success)';
-        finalizeBtn.disabled = false;
-
-        if (remaining < 0) {
-            changeEl.style.display = 'flex';
-            document.getElementById('split-change-value').textContent = formatCurrency(Math.abs(remaining));
-        } else {
-            changeEl.style.display = 'none';
-        }
-    }
-}
-
-function removeSplitPayment(index) {
-    splitPayments.splice(index, 1);
-    updateSplitPaymentDisplay();
-}
-
-function finalizeSplitSale() {
-    const finalizeBtn = document.getElementById('btn-finalize-split');
-    finalizeBtn.textContent = 'Processando...';
-    finalizeBtn.disabled = true;
-
-    const token = localStorage.getItem('authToken');
-    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-    const saleData = {
-        items: cart.map(item => ({
-            productId: item.id,
-            quantity: item.quantity,
-            price: item.price
-        })),
-        paymentMethod: 'misto',
-        total: total,
-        payments: splitPayments // Send split payments array
-    };
-
-    fetch('/api/sales', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(saleData)
-    })
-        .then(response => response.json())
-        .then(data => {
-            if (data.id) {
-                // Calculate total change if any
-                const totalPaid = splitPayments.reduce((sum, p) => sum + p.amount, 0);
-                const change = totalPaid - total;
-
-                let msg = `✅ Venda Mista Finalizada!\nTotal: ${formatCurrency(total)}`;
-                if (change > 0) {
-                    msg += `\nTroco: ${formatCurrency(change)}`;
-                }
-
-                alert(msg);
-
-                closeSplitPaymentModal();
-                cart = [];
-                updateCartDisplay();
-                loadDashboard();
-                loadProducts();
-
-                // Reset to default payment method
-                selectPaymentMethod('dinheiro');
-            } else {
-                alert('Erro: ' + (data.error || 'Falha ao finalizar'));
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            alert('Erro ao finalizar venda mista');
-        })
-        .finally(() => {
-            finalizeBtn.textContent = 'Finalizar Venda';
-            finalizeBtn.disabled = false;
-        });
-}
+// ==================== FUNCIONALIDADE PIX (GERAÃ‡ÃƒO DE QR CODE) ====================
 
 function generatePixQr() {
-    console.log('DEBUG: generatePixQr started');
     try {
         const qrContainer = document.getElementById('pix-qr-container');
         if (!qrContainer) {
-            alert('Erro: Container do QR Code não encontrado!');
+            console.error('Container PIX nÃ£o encontrado no DOM');
             return;
         }
 
-        qrContainer.innerHTML = '<p style="color: blue;">Carregando...</p>';
+        qrContainer.innerHTML = '<p style="color: blue;">Gerando QR Code...</p>';
 
-        let pixKey = '62819358000106'; // Default fallback
+        let pixKey = '62819358000106'; // Chave Default (Fallback)
+        // Tentar pegar do config (window ou localStorage)
         if (window.storeConfig && window.storeConfig.storePixKey) {
             pixKey = window.storeConfig.storePixKey;
+        } else {
+            const localConfig = localStorage.getItem('storeConfig');
+            if (localConfig) {
+                try { pixKey = JSON.parse(localConfig).pixKey || pixKey; } catch (e) { }
+            }
         }
 
         const cartTotalEl = document.getElementById('cart-total');
-        if (!cartTotalEl) {
-            throw new Error('Elemento cart-total não encontrado');
-        }
+        const total = cartTotalEl
+            ? parseFloat(cartTotalEl.textContent.replace('R$', '').replace('.', '').replace(',', '.').trim())
+            : 0;
 
-        const total = parseFloat(cartTotalEl.textContent.replace('R$ ', '').replace('.', '').replace(',', '.'));
         const payload = generatePixPayload(pixKey, 'L-STORE', 'BRASILIA', total || 0);
 
-        // Use local QRCode library (qrcodejs)
-        if (typeof QRCode === 'undefined') {
-            qrContainer.innerHTML = '<p style="color: red; font-size: 16px; font-weight: bold;">Erro: Biblioteca QRCode não carregada. Tente recarregar a página (Ctrl+F5).</p>';
-            console.error('QRCode library not found');
-            return;
+        // Limpar e preparar container
+        qrContainer.innerHTML = '';
+        qrContainer.style.display = 'flex';
+        qrContainer.style.flexDirection = 'column';
+        qrContainer.style.alignItems = 'center';
+        qrContainer.style.justifyContent = 'center';
+
+        const qrWrapper = document.createElement('div');
+        qrWrapper.style.background = 'white';
+        qrWrapper.style.padding = '10px';
+        qrWrapper.style.borderRadius = '8px';
+        qrContainer.appendChild(qrWrapper);
+
+        if (typeof QRCode !== 'undefined') {
+            new QRCode(qrWrapper, {
+                text: payload,
+                width: 250,
+                height: 250,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.M
+            });
+
+            const keyInfo = document.createElement('p');
+            keyInfo.style.marginTop = '15px';
+            keyInfo.style.fontWeight = 'bold';
+            keyInfo.style.color = '#333';
+            keyInfo.textContent = `Chave: ${pixKey}`;
+            qrContainer.appendChild(keyInfo);
+
+            startPixTimer();
+            console.log('âœ… QR Code PIX gerado com sucesso');
+        } else {
+            qrContainer.innerHTML = '<p style="color:red">Erro: Biblioteca QRCode nÃ£o carregada.</p>';
+            console.error('QRCode lib missing');
         }
 
-        console.log('Generating QR Code with payload:', payload);
-
-        // Delay slightly to ensure modal is visible
-        setTimeout(() => {
-            try {
-                qrContainer.innerHTML = ''; // Clear container
-                qrContainer.style.border = "none";
-                qrContainer.style.backgroundColor = "transparent";
-                qrContainer.style.display = "flex";
-                qrContainer.style.flexDirection = "column";
-                qrContainer.style.alignItems = "center";
-                qrContainer.style.justifyContent = "center";
-
-                // Create wrapper for QR to ensure centering
-                const qrWrapper = document.createElement('div');
-                qrWrapper.style.background = 'white';
-                qrWrapper.style.padding = '10px';
-                qrWrapper.style.borderRadius = '8px';
-                qrContainer.appendChild(qrWrapper);
-
-                // Generate QR Code using qrcodejs
-                new QRCode(qrWrapper, {
-                    text: payload,
-                    width: 256,
-                    height: 256,
-                    colorDark: "#000000",
-                    colorLight: "#ffffff",
-                    correctLevel: QRCode.CorrectLevel.M
-                });
-
-                console.log('QR Code generated');
-
-                // Add key info below QR
-                const keyInfo = document.createElement('p');
-                keyInfo.style.marginTop = '15px';
-                keyInfo.style.fontWeight = 'bold';
-                keyInfo.style.color = '#333';
-                keyInfo.style.fontSize = '1.1rem';
-                keyInfo.textContent = `Chave: ${pixKey}`;
-                qrContainer.appendChild(keyInfo);
-
-            } catch (e) {
-                console.error('Error generating QR Code:', e);
-                qrContainer.innerHTML = `<p style="color: red; font-weight: bold;">Erro ao gerar: ${e.message}</p>`;
-            }
-        }, 300);
-
-        startPixTimer();
-    } catch (err) {
-        console.error('CRITICAL ERROR in generatePixQr:', err);
-        alert('Erro crítico ao gerar PIX: ' + err.message);
+    } catch (e) {
+        console.error('Erro ao gerar PIX:', e);
+        const qrContainer = document.getElementById('pix-qr-container');
+        if (qrContainer) qrContainer.innerHTML = '<p style="color:red">Erro ao gerar QR Code</p>';
     }
 }
 
 function startPixTimer() {
     if (pixTimerInterval) clearInterval(pixTimerInterval);
-
-    let seconds = 120; // 2 minutes as requested
+    let seconds = 120; // 2 minutos
     const timerDisplay = document.getElementById('pix-timer');
+    if (!timerDisplay) return;
 
-    pixTimerInterval = setInterval(() => {
-        seconds--;
+    // AtualizaÃ§Ã£o inicial
+    const update = () => {
         const min = Math.floor(seconds / 60).toString().padStart(2, '0');
         const sec = (seconds % 60).toString().padStart(2, '0');
         timerDisplay.textContent = `Atualiza em: ${min}:${sec}`;
+    };
+    update();
+
+    pixTimerInterval = setInterval(() => {
+        seconds--;
+        update();
 
         if (seconds <= 0) {
-            generatePixQr(); // Regenera
+            generatePixQr(); // Regenera Payload
         }
     }, 1000);
 }
 
-function finalizeSale() {
-    if (cart.length === 0) {
-        alert('⚠️ Carrinho vazio!');
-        return;
-    }
-
-    const paymentMethod = document.getElementById('payment-method').value;
-    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-    // Lógica de Troco para Dinheiro
-    if (paymentMethod === 'dinheiro') {
-        let paidAmount = parseFloat(document.getElementById('pos-paid-amount').value) || 0;
-
-        // Se o valor pago for menor que o total, pedir o valor
-        if (paidAmount < total) {
-            const input = prompt(`Total: ${formatCurrency(total)}\n\nDigite o valor recebido:`);
-            if (input === null) return; // Cancelado pelo usuário
-
-            paidAmount = parseFloat(input.replace(',', '.'));
-            if (isNaN(paidAmount) || paidAmount < total) {
-                alert('❌ Valor inválido ou insuficiente!');
-                return;
-            }
-
-            // Atualizar input e calcular troco
-            document.getElementById('pos-paid-amount').value = paidAmount;
-            calculateChange();
-        }
-
-        // Mostrar feedback e aguardar 3 segundos
-        const change = paidAmount - total;
-        const finalizeBtn = document.getElementById('finalize-sale');
-        const originalText = finalizeBtn ? finalizeBtn.textContent : 'F7 Finalizar';
-
-        if (finalizeBtn) {
-            finalizeBtn.textContent = `Troco: ${formatCurrency(change)} - Finalizando em 3s...`;
-            finalizeBtn.disabled = true;
-            finalizeBtn.style.backgroundColor = 'var(--warning)';
-        }
-
-        // Delay de 3 segundos antes de processar
-        setTimeout(() => {
-            processSaleFinalization(originalText);
-        }, 3000);
-
-    } else {
-        // Para outros métodos, finaliza direto (ou com pequeno delay visual se quiser)
-        processSaleFinalization();
-    }
-}
-
-function processSaleFinalization(originalBtnText = 'F7 Finalizar') {
-    const finalizeBtn = document.getElementById('finalize-sale');
-    if (finalizeBtn) {
-        finalizeBtn.textContent = '⏳ Processando...';
-        finalizeBtn.disabled = true;
-        finalizeBtn.style.backgroundColor = ''; // Reset color
-    }
-
-    const paymentMethod = document.getElementById('payment-method').value;
-    const token = localStorage.getItem('authToken');
-
-    const saleData = {
-        items: cart.map(item => ({
-            productId: item.id,
-            quantity: item.quantity,
-            price: item.price
-        })),
-        paymentMethod: paymentMethod,
-        total: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+function generatePixPayload(key, name, city, amount, txId = '***') {
+    const formatField = (id, value) => {
+        const len = value.length.toString().padStart(2, '0');
+        return `${id}${len}${value}`;
     };
 
-    fetch('/api/sales', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(saleData)
-    })
-        .then(response => {
-            if (response.status === 403) {
-                throw new Error('SESSION_EXPIRED');
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.id || data.orderId) {
-                // Sucesso
-                const totalFormatted = formatCurrency(data.total);
+    const normalize = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
 
-                // Se foi dinheiro, mostrar troco no alert também
-                let msg = `✅ Venda finalizada!\nTotal: ${totalFormatted}`;
-                if (paymentMethod === 'dinheiro') {
-                    const paid = parseFloat(document.getElementById('pos-paid-amount').value) || 0;
-                    const change = paid - data.total;
-                    if (change > 0) {
-                        msg += `\nTroco: ${formatCurrency(change)}`;
-                    }
-                }
+    const merchantAccount = formatField('00', 'BR.GOV.BCB.PIX') + formatField('01', key);
+    const merchantCategory = '0000';
+    const transactionCurrency = '986'; // BRL
+    const countryCode = 'BR';
+    const merchantName = normalize(name).substring(0, 25);
+    const merchantCity = normalize(city).substring(0, 15);
 
-                alert(msg);
+    let payload =
+        '000201' +
+        formatField('26', merchantAccount) +
+        formatField('52', merchantCategory) +
+        formatField('53', transactionCurrency);
 
-                // Limpar tudo
-                cart = [];
-                updateCartDisplay();
-                loadDashboard();
-                loadProducts();
+    if (amount) {
+        payload += formatField('54', amount.toFixed(2));
+    }
 
-                // Limpar campos de pagamento
-                document.getElementById('pos-paid-amount').value = '';
-                document.getElementById('pos-change-value').textContent = 'R$ 0,00';
+    payload +=
+        formatField('58', countryCode) +
+        formatField('59', merchantName) +
+        formatField('60', merchantCity) +
+        formatField('62', formatField('05', txId)) +
+        '6304';
 
-                // Resetar PIX se necessário
-                if (paymentMethod === 'pix') {
-                    selectPaymentMethod('dinheiro');
-                }
+    const crc = generateCRC16(payload);
+    return payload + crc;
+}
+
+function generateCRC16(payload) {
+    const polynomial = 0x1021;
+    let crc = 0xFFFF;
+
+    for (let i = 0; i < payload.length; i++) {
+        crc ^= (payload.charCodeAt(i) << 8);
+        for (let j = 0; j < 8; j++) {
+            if ((crc & 0x8000) !== 0) {
+                crc = (crc << 1) ^ polynomial;
             } else {
-                alert(data.error || 'Erro ao finalizar venda');
+                crc = (crc << 1);
             }
-        })
-        .catch(error => {
-            console.error('Erro:', error);
-            if (error.message === 'SESSION_EXPIRED') {
-                alert('⚠️ Sessão expirada! Por favor, faça login novamente.');
-                logout();
-            } else {
-                alert('Erro ao finalizar venda: ' + error.message);
-            }
-        })
-        .finally(() => {
-            if (finalizeBtn) {
-                finalizeBtn.textContent = originalBtnText;
-                finalizeBtn.disabled = false;
-            }
-        });
+        }
+    }
+
+    return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
 }
 
 // ==================== VENDAS ====================
@@ -2091,12 +1923,12 @@ function loadSales() {
 
 function getPaymentMethodIcon(method) {
     const icons = {
-        'dinheiro': '💵',
-        'cartao': '💳',
-        'pix': '📱',
-        'misto': '⚖️'
+        'dinheiro': 'ðŸ’µ',
+        'cartao': 'ðŸ’³',
+        'pix': 'ðŸ“±',
+        'misto': 'âš–ï¸'
     };
-    return icons[method] || '💰';
+    return icons[method] || 'ðŸ’°';
 }
 
 // ==================== DEVEDORES ====================
@@ -2121,7 +1953,7 @@ function loadDebtors() {
                 tr.innerHTML = `
                 <td>${debtor.name}<br><small>${debtor.email}</small></td>
                 <td style="color: var(--danger); font-weight: bold;">${formatCurrency(debtor.debtAmount)}</td>
-                <td>${debtor.cardInfo ? '**** ' + debtor.cardInfo.slice(-4) : 'Não cadastrado'}</td>
+                <td>${debtor.cardInfo ? '**** ' + debtor.cardInfo.slice(-4) : 'NÃ£o cadastrado'}</td>
                 <td><span class="status-badge active">Ativo</span></td>
                 <td>
                     <button class="btn-sm btn-primary">Cobrar</button>
@@ -2136,7 +1968,7 @@ function loadDebtors() {
 // ==================== DASHBOARD & CAIXA ====================
 function loadDashboard() {
     checkCashRegisterStatus();
-    // Aqui poderíamos carregar outros widgets se necessário
+    // Aqui poderÃ­amos carregar outros widgets se necessÃ¡rio
 }
 
 function checkCashRegisterStatus() {
@@ -2160,7 +1992,7 @@ function checkCashRegisterStatus() {
 
                 if (balanceEl) {
                     balanceEl.style.display = 'block';
-                    balanceEl.textContent = `Início: ${formatCurrency(data.openingBalance)}`;
+                    balanceEl.textContent = `InÃ­cio: ${formatCurrency(data.openingBalance)}`;
                 }
             } else {
                 statusCard.style.borderColor = 'var(--danger)';
@@ -2194,7 +2026,7 @@ function openCashRegister() {
 
     const openingBalance = parseFloat(input.replace(',', '.'));
     if (isNaN(openingBalance) || openingBalance < 0) {
-        alert('Valor inválido');
+        alert('Valor invÃ¡lido');
         return;
     }
 
@@ -2212,7 +2044,7 @@ function openCashRegister() {
             if (data.error) {
                 alert(data.error);
             } else {
-                alert('✅ Caixa aberto com sucesso!');
+                alert('âœ… Caixa aberto com sucesso!');
                 checkCashRegisterStatus();
             }
         })
@@ -2233,7 +2065,7 @@ function closeCashRegister() {
             if (data.error) {
                 alert(data.error);
             } else {
-                alert(`✅ Caixa fechado!\n\nTotal Vendas: ${formatCurrency(data.totalSales)}\nSaldo Final: ${formatCurrency(data.closingBalance)}`);
+                alert(`âœ… Caixa fechado!\n\nTotal Vendas: ${formatCurrency(data.totalSales)}\nSaldo Final: ${formatCurrency(data.closingBalance)}`);
                 checkCashRegisterStatus();
             }
         })
@@ -2243,7 +2075,7 @@ function closeCashRegister() {
         });
 }
 
-// ==================== RELATÓRIOS ====================
+// ==================== RELATÃ“RIOS ====================
 function loadReports() {
     const token = localStorage.getItem('authToken');
 
@@ -2282,7 +2114,7 @@ function loadReports() {
             if (todayEl) todayEl.textContent = formatCurrency(totalToday);
             if (monthEl) monthEl.textContent = formatCurrency(totalMonth);
         })
-        .catch(error => console.error('Erro ao carregar relatórios:', error));
+        .catch(error => console.error('Erro ao carregar relatÃ³rios:', error));
 }
 
 // ==================== FINANCEIRO ====================
@@ -2368,7 +2200,7 @@ function checkCashRegisterStatus() {
 function handleCashRegisterClick() {
     if (isCashRegisterOpen) {
         // Show options: Go to POS or Close Register
-        const action = confirm('O caixa está ABERTO.\n\nClique em OK para ir ao CAIXA.\nClique em CANCELAR para FECHAR O CAIXA.');
+        const action = confirm('O caixa estÃ¡ ABERTO.\n\nClique em OK para ir ao CAIXA.\nClique em CANCELAR para FECHAR O CAIXA.');
         if (action) {
             switchTab('caixa');
         } else {
@@ -2390,10 +2222,10 @@ function closeCashRegister() {
         .then(response => response.json())
         .then(data => {
             if (data.message) {
-                alert(`✅ Caixa fechado com sucesso!\n\nSaldo Inicial: ${formatCurrency(data.openingBalance)}\nVendas: ${formatCurrency(data.totalSales)}\nSaldo Final: ${formatCurrency(data.closingBalance)}`);
+                alert(`âœ… Caixa fechado com sucesso!\n\nSaldo Inicial: ${formatCurrency(data.openingBalance)}\nVendas: ${formatCurrency(data.totalSales)}\nSaldo Final: ${formatCurrency(data.closingBalance)}`);
                 checkCashRegisterStatus();
             } else {
-                alert('❌ ' + (data.error || 'Erro ao fechar caixa'));
+                alert('âŒ ' + (data.error || 'Erro ao fechar caixa'));
             }
         })
         .catch(err => {
@@ -2501,7 +2333,7 @@ function selectModalPayment(method) {
         generatePixQr();
     } else if (method === 'pontos') {
         if (!selectedClientId) {
-            alert('⚠️ Selecione um cliente para usar pontos.');
+            alert('âš ï¸ Selecione um cliente para usar pontos.');
             selectModalPayment('dinheiro');
             return;
         }
@@ -2511,7 +2343,7 @@ function selectModalPayment(method) {
         const pointsNeeded = Math.ceil(total * 100); // 1 LP = 0.01 BRL
 
         if ((client.lpBalance || 0) < pointsNeeded) {
-            alert(`⚠️ Saldo insuficiente!\nNecessário: ${pointsNeeded} LP\nSaldo: ${client.lpBalance || 0} LP`);
+            alert(`âš ï¸ Saldo insuficiente!\nNecessÃ¡rio: ${pointsNeeded} LP\nSaldo: ${client.lpBalance || 0} LP`);
             selectModalPayment('dinheiro');
             return;
         }
@@ -2549,7 +2381,7 @@ function confirmPayment() {
     if (method === 'dinheiro') {
         const paidInput = parseFloat(document.getElementById('modal-amount-paid').value) || 0;
         if (paidInput < total) {
-            alert('Valor pago é insuficiente!');
+            alert('Valor pago Ã© insuficiente!');
             return;
         }
         paidAmount = paidInput;
@@ -2607,13 +2439,13 @@ function processSale(method, paidAmount) {
         .then(response => response.json())
         .then(data => {
             if (data.id || data.message) {
-                let msg = `✅ Venda Finalizada!\nTroco: ${formatCurrency(change)}`;
+                let msg = `âœ… Venda Finalizada!\nTroco: ${formatCurrency(change)}`;
 
                 // Award Points
                 if (selectedClientId) {
                     const points = updateClientPoints(selectedClientId, total);
                     if (points > 0) {
-                        msg += `\n\n🎉 Cliente ganhou ${points} LP!`;
+                        msg += `\n\nðŸŽ‰ Cliente ganhou ${points} LP!`;
                     }
                 }
 
@@ -2630,7 +2462,7 @@ function processSale(method, paidAmount) {
         })
         .catch(error => {
             console.error('Erro:', error);
-            alert('Erro de conexão ao finalizar venda.');
+            alert('Erro de conexÃ£o ao finalizar venda.');
         });
 }
 
@@ -2649,7 +2481,7 @@ document.getElementById('cash-register-form')?.addEventListener('submit', functi
     const openingBalance = parseFloat(document.getElementById('cash-register-opening-balance').value);
 
     if (isNaN(openingBalance) || openingBalance < 0) {
-        alert('Por favor, insira um valor válido.');
+        alert('Por favor, insira um valor vÃ¡lido.');
         return;
     }
 
@@ -2665,12 +2497,12 @@ document.getElementById('cash-register-form')?.addEventListener('submit', functi
         .then(response => response.json())
         .then(data => {
             if (data.id) {
-                alert('✅ Caixa aberto com sucesso!');
+                alert('âœ… Caixa aberto com sucesso!');
                 closeCashRegisterModal();
                 checkCashRegisterStatus();
                 switchTab('caixa');
             } else {
-                alert('❌ ' + (data.error || 'Erro ao abrir caixa'));
+                alert('âŒ ' + (data.error || 'Erro ao abrir caixa'));
             }
         })
         .catch(err => {
@@ -2721,7 +2553,7 @@ function loadAccounting() {
             tbody.innerHTML = '';
 
             if (transactions.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">Nenhuma transação registrada</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">Nenhuma transaÃ§Ã£o registrada</td></tr>';
                 return;
             }
 
@@ -2753,9 +2585,9 @@ function loadSubscription() {
 
     if (statusEl) {
         const statusMap = {
-            'active': 'Ativo ✓',
+            'active': 'Ativo âœ“',
             'pending': 'Pendente',
-            'verification': 'Em Análise',
+            'verification': 'Em AnÃ¡lise',
             'expired': 'Expirado'
         };
         statusEl.textContent = statusMap[user.subscriptionStatus] || 'Desconhecido';
@@ -2767,13 +2599,13 @@ function loadSubscription() {
             const expiryDate = new Date(user.subscriptionExpiresAt);
             expiresEl.textContent = `Expira em: ${expiryDate.toLocaleDateString('pt-BR')}`;
         } else {
-            expiresEl.textContent = 'Data de expiração não definida';
+            expiresEl.textContent = 'Data de expiraÃ§Ã£o nÃ£o definida';
         }
     }
 }
 
 function renewSubscription() {
-    alert('🔄 Funcionalidade de renovação em desenvolvimento.\n\nEm breve você poderá renovar sua assinatura via PIX.');
+    alert('ðŸ”„ Funcionalidade de renovaÃ§Ã£o em desenvolvimento.\n\nEm breve vocÃª poderÃ¡ renovar sua assinatura via PIX.');
 }
 
 
@@ -2790,7 +2622,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
 window.installPWA = function () {
     if (!deferredPrompt) {
-        alert('📱 Para instalar no iOS, toque em "Compartilhar" e depois em "Adicionar à Tela de Início"');
+        alert('ðŸ“± Para instalar no iOS, toque em "Compartilhar" e depois em "Adicionar Ã  Tela de InÃ­cio"');
         return;
     }
 
@@ -2867,7 +2699,7 @@ window.login = function (e) {
 
                 currentUser = data.user; // Update global variable
 
-                // Lógica de redirecionamento
+                // LÃ³gica de redirecionamento
                 const user = data.user;
                 const authScreen = document.getElementById('auth-screen');
                 const appScreen = document.getElementById('app-screen');
@@ -2887,7 +2719,7 @@ window.login = function (e) {
                 loadProducts();
                 loadSales();
 
-                // Atualizar nome do usuário
+                // Atualizar nome do usuÃ¡rio
                 const headerUsername = document.getElementById('header-username');
                 if (headerUsername) headerUsername.textContent = user.username;
 
@@ -2921,7 +2753,7 @@ window.register = function (e) {
     }
 
     if (pin.length !== 4) {
-        alert('O PIN deve ter exatamente 4 dígitos.');
+        alert('O PIN deve ter exatamente 4 dÃ­gitos.');
         return;
     }
 
@@ -2933,7 +2765,7 @@ window.register = function (e) {
         .then(response => response.json())
         .then(data => {
             if (data.message) {
-                alert('✓ Conta criada! Faça login para continuar.');
+                alert('âœ“ Conta criada! FaÃ§a login para continuar.');
                 window.showLogin();
                 document.getElementById('login-email').value = email;
             } else {
@@ -2978,29 +2810,29 @@ function loadBoletos() {
                 let diasRestantes = '';
 
                 if (boleto.status === 'pago') {
-                    statusBadge = '<span class="status-badge active">✓ Pago</span>';
+                    statusBadge = '<span class="status-badge active"><i class="ph ph-check-circle"></i> Pago</span>';
                     diasRestantes = '-';
                 } else if (diffDays < 0) {
-                    statusBadge = '<span class="status-badge inactive">✗ Vencido</span>';
-                    diasRestantes = `<span style="color: var(--accent-red);">${Math.abs(diffDays)} dias atrás</span>`;
+                    statusBadge = '<span class="status-badge inactive" style="background: rgba(239, 68, 68, 0.2); color: #ef4444;"><i class="ph ph-warning-circle"></i> Vencido</span>';
+                    diasRestantes = `<span style="color: #ef4444;">${Math.abs(diffDays)} dias atrás</span>`;
                 } else if (diffDays <= 7) {
-                    statusBadge = '<span class="status-badge warning">⚠ Vencendo</span>';
+                    statusBadge = '<span class="status-badge warning"><i class="ph ph-warning"></i> Vencendo</span>';
                     diasRestantes = `<span style="color: var(--accent-orange);">${diffDays} dias</span>`;
                 } else {
-                    statusBadge = '<span class="status-badge">⏳ Pendente</span>';
+                    statusBadge = '<span class="status-badge"><i class="ph ph-hourglass"></i> Pendente</span>';
                     diasRestantes = `${diffDays} dias`;
                 }
 
                 tr.innerHTML = `
                     <td>${boleto.description}</td>
-                    <td>R$ ${parseFloat(boleto.value).toFixed(2)}</td>
+                    <td>${formatCurrency(parseFloat(boleto.value))}</td>
                     <td>${dueDate.toLocaleDateString('pt-BR')}</td>
                     <td>${statusBadge}</td>
                     <td>${diasRestantes}</td>
                     <td>
-                        ${boleto.status !== 'pago' ? `<button onclick="markBoletoAsPaid(${boleto.id})" class="btn-sm btn-success" title="Marcar como Pago">✓ Pagar</button>` : ''}
-                        <button onclick="editBoleto(${boleto.id})" class="btn-sm btn-secondary" title="Editar">✎</button>
-                        <button onclick="deleteBoleto(${boleto.id})" class="btn-sm btn-danger" title="Excluir">✗</button>
+                        ${boleto.status !== 'pago' ? `<button onclick="markBoletoAsPaid(${boleto.id})" class="btn-sm btn-success" title="Marcar como Pago" style="margin-right: 5px;"><i class="ph ph-check"></i></button>` : ''}
+                        <button onclick="editBoleto(${boleto.id})" class="btn-sm btn-secondary" title="Editar"><i class="ph ph-pencil-simple"></i></button>
+                        <button onclick="deleteBoleto(${boleto.id})" class="btn-sm btn-danger" title="Excluir"><i class="ph ph-trash"></i></button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -3075,7 +2907,7 @@ document.getElementById('boleto-form')?.addEventListener('submit', function (e) 
         .then(response => response.json())
         .then(data => {
             if (data.message || data.id) {
-                alert(boletoId ? '✓ Boleto atualizado!' : '✓ Boleto cadastrado!');
+                alert(boletoId ? 'âœ“ Boleto atualizado!' : 'âœ“ Boleto cadastrado!');
                 closeBoletoModal();
                 loadBoletos();
                 loadDashboard(); // Atualizar alertas
@@ -3127,7 +2959,7 @@ function markBoletoAsPaid(id) {
         .then(response => response.json())
         .then(data => {
             if (data.message) {
-                alert('✓ Boleto marcado como pago!');
+                alert('âœ“ Boleto marcado como pago!');
                 loadBoletos();
                 loadDashboard();
             }
@@ -3148,7 +2980,7 @@ function deleteBoleto(id) {
         .then(response => response.json())
         .then(data => {
             if (data.message) {
-                alert('✓ Boleto excluído!');
+                alert('âœ“ Boleto excluÃ­do!');
                 loadBoletos();
                 loadDashboard();
             }
@@ -3156,7 +2988,7 @@ function deleteBoleto(id) {
         .catch(err => console.error('Erro:', err));
 }
 
-// Event listener para botão de adicionar boleto
+// Event listener para botÃ£o de adicionar boleto
 document.getElementById('add-boleto-btn')?.addEventListener('click', openBoletoModal);
 
 
@@ -3186,7 +3018,7 @@ function loadStockSummary() {
         .catch(err => console.error('Erro ao carregar resumo de estoque:', err));
 }
 
-// Carregar movimentações de estoque
+// Carregar movimentaÃ§Ãµes de estoque
 function loadStockMovements() {
     const token = localStorage.getItem('authToken');
     const tbody = document.getElementById('stock-movements-table-body');
@@ -3206,7 +3038,7 @@ function loadStockMovements() {
             );
 
             if (filteredMovements.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-secondary);">Nenhuma movimentação registrada</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-secondary);">Nenhuma movimentaÃ§Ã£o registrada</td></tr>';
                 return;
             }
 
@@ -3216,11 +3048,11 @@ function loadStockMovements() {
 
                 let typeBadge = '';
                 if (mov.type === 'entrada') {
-                    typeBadge = '<span class="status-badge active">➕ Entrada</span>';
+                    typeBadge = '<span class="status-badge active">âž• Entrada</span>';
                 } else if (mov.type === 'saida') {
-                    typeBadge = '<span class="status-badge inactive">➖ Saída</span>';
+                    typeBadge = '<span class="status-badge inactive">âž– SaÃ­da</span>';
                 } else {
-                    typeBadge = '<span class="status-badge warning">🔧 Ajuste</span>';
+                    typeBadge = '<span class="status-badge warning">ðŸ”§ Ajuste</span>';
                 }
 
                 tr.innerHTML = `
@@ -3242,12 +3074,12 @@ function loadStockMovements() {
 
             loadStockSummary();
         })
-        .catch(err => console.error('Erro ao carregar movimentações:', err));
+        .catch(err => console.error('Erro ao carregar movimentaÃ§Ãµes:', err));
 }
 
-// Excluir movimentação de estoque
+// Excluir movimentaÃ§Ã£o de estoque
 function deleteStockMovement(id) {
-    if (!confirm('Tem certeza que deseja excluir esta movimentação? O estoque será revertido.')) return;
+    if (!confirm('Tem certeza que deseja excluir esta movimentaÃ§Ã£o? O estoque serÃ¡ revertido.')) return;
 
     const token = localStorage.getItem('authToken');
     fetch(`/api/stock-movements/${id}`, {
@@ -3257,7 +3089,7 @@ function deleteStockMovement(id) {
         .then(response => response.json())
         .then(data => {
             if (data.message) {
-                alert('Movimentação excluída com sucesso!');
+                alert('MovimentaÃ§Ã£o excluÃ­da com sucesso!');
                 loadStockMovements();
                 loadStockSummary();
                 loadProducts();
@@ -3273,7 +3105,7 @@ document.getElementById('stock-search')?.addEventListener('input', () => {
     loadStockMovements();
 });
 
-// Abrir modal de movimentação
+// Abrir modal de movimentaÃ§Ã£o
 function openStockMovementModal() {
     const token = localStorage.getItem('authToken');
 
@@ -3304,13 +3136,13 @@ function openStockMovementModal() {
     if (modal) modal.style.display = 'flex';
 }
 
-// Fechar modal de movimentação
+// Fechar modal de movimentaÃ§Ã£o
 function closeStockMovementModal() {
     const modal = document.getElementById('stock-movement-modal');
     if (modal) modal.style.display = 'none';
 }
 
-// Salvar movimentação de estoque
+// Salvar movimentaÃ§Ã£o de estoque
 document.getElementById('stock-movement-form')?.addEventListener('submit', function (e) {
     e.preventDefault();
 
@@ -3343,23 +3175,23 @@ document.getElementById('stock-movement-form')?.addEventListener('submit', funct
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('Movimentação registrada com sucesso!');
+                alert('MovimentaÃ§Ã£o registrada com sucesso!');
                 closeStockMovementModal();
                 loadStockMovements();
                 loadStockSummary();
                 loadProducts(); // Atualiza lista de produtos
             } else {
-                alert('Erro ao registrar movimentação: ' + data.message);
+                alert('Erro ao registrar movimentaÃ§Ã£o: ' + data.message);
             }
         })
         .catch(error => {
             console.error('Erro:', error);
-            alert('Erro ao registrar movimentação');
+            alert('Erro ao registrar movimentaÃ§Ã£o');
         });
 });
 
 
-// Event listener para botão de nova movimentação
+// Event listener para botÃ£o de nova movimentaÃ§Ã£o
 document.getElementById('add-stock-movement-btn')?.addEventListener('click', openStockMovementModal);
 
 // ==================== CLIENTES / FIDELIDADE ====================
@@ -3420,7 +3252,7 @@ function updateClientDropdown() {
     if (!select) return;
 
     const currentVal = select.value;
-    select.innerHTML = '<option value="">Cliente Não Identificado</option>';
+    select.innerHTML = '<option value="">Cliente NÃ£o Identificado</option>';
 
     clients.forEach(client => {
         const option = document.createElement('option');
@@ -3450,7 +3282,7 @@ document.getElementById('new-client-form')?.addEventListener('submit', function 
     if (!name) return;
 
     const newClient = addClient(name, cpf);
-    alert('✅ Cliente cadastrado!');
+    alert('âœ… Cliente cadastrado!');
     closeNewClientModal();
     updateClientDropdown();
 
@@ -3499,7 +3331,7 @@ function openLoyaltyModal() {
     const clientData = localStorage.getItem('clientData');
 
     if (!userData && !clientData) {
-        alert('Por favor, faça login para ver seus pontos.');
+        alert('Por favor, faÃ§a login para ver seus pontos.');
         window.showLogin();
         return;
     }
@@ -3540,26 +3372,12 @@ function formatCurrency(value) {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-// ==================== LOJA / CONFIGURAÇÕES ====================
-function loadStoreConfig() {
-    const pixKey = localStorage.getItem('storePixKey');
-    const input = document.getElementById('store-pix-key');
-    if (input && pixKey) {
-        input.value = pixKey;
-    }
-}
+// ==================== LOJA / CONFIGURAÃ‡Ã•ES ====================
 
-function saveStoreConfig() {
-    const input = document.getElementById('store-pix-key');
-    if (input) {
-        localStorage.setItem('storePixKey', input.value);
-        alert('✅ Configurações salvas com sucesso!');
-    }
-}
 // ==================== EVENT LISTENERS ====================
 // ==================== INITIALIZATION ====================
 function initApp() {
-    console.log('🚀 Inicializando app...');
+    console.log('ðŸš€ Inicializando app...');
 
     // 1. Auto-Login & Initial Data
     const token = localStorage.getItem('authToken');
@@ -3585,7 +3403,7 @@ function initApp() {
     updateClock();
     setInterval(updateClock, 1000);
 
-    // Navegação entre tabs
+    // NavegaÃ§Ã£o entre tabs
     document.querySelectorAll('.nav-item').forEach(tab => {
         tab.addEventListener('click', () => switchTab(tab.dataset.tab));
     });
@@ -3634,10 +3452,10 @@ function initApp() {
 
     // Finalize Sale Button
     const finalizeBtn = document.getElementById('finalize-sale');
-    console.log('🔍 Botão Finalizar encontrado?', finalizeBtn ? 'SIM' : 'NÃO');
+    console.log('ðŸ” BotÃ£o Finalizar encontrado?', finalizeBtn ? 'SIM' : 'NÃƒO');
     if (finalizeBtn) {
         finalizeBtn.addEventListener('click', finalizeSale);
-        console.log('✅ Event listener adicionado ao botão Finalizar');
+        console.log('âœ… Event listener adicionado ao botÃ£o Finalizar');
     }
 
     // Clear Cart Button
@@ -3718,13 +3536,21 @@ function generatePixPayload(key, name, city, amount, txId = '***') {
 function saveStoreConfig() {
     const token = localStorage.getItem('authToken');
     const storePixKey = document.getElementById('store-pix-key').value;
-    const enableLoyalty = document.getElementById('enable-loyalty').checked;
-    const loyaltyCashbackRate = parseFloat(document.getElementById('loyalty-cashback-rate').value) || 0;
+    const loyaltyCheckbox = document.getElementById('enable-loyalty');
+    const loyaltyRateInput = document.getElementById('loyalty-cashback-rate');
+
+    const enableLoyalty = loyaltyCheckbox ? loyaltyCheckbox.checked : false;
+    const loyaltyCashbackRate = loyaltyRateInput ? (parseFloat(loyaltyRateInput.value) || 0) : 0;
 
     if (!storePixKey) {
         alert('Por favor, informe a chave PIX.');
         return;
     }
+
+    if (!window.storeConfig) window.storeConfig = {};
+    window.storeConfig.storePixKey = storePixKey;
+    localStorage.setItem('storeConfig', JSON.stringify(window.storeConfig));
+    localStorage.setItem('storePixKey', storePixKey);
 
     fetch('/api/config', {
         method: 'POST',
@@ -3742,8 +3568,6 @@ function saveStoreConfig() {
         .then(data => {
             if (data.message) {
                 alert('✅ ' + data.message);
-                // Update global config if needed
-                if (!window.storeConfig) window.storeConfig = {};
                 window.storeConfig.storePixKey = storePixKey;
             } else {
                 alert('❌ ' + (data.error || 'Erro ao salvar configuração'));
@@ -3751,61 +3575,54 @@ function saveStoreConfig() {
         })
         .catch(err => {
             console.error('Erro:', err);
-            alert('Erro ao salvar configuração');
+            alert('✅ Configuração salva (Localmente)!');
         });
 }
 
 function loadStoreConfig() {
+    console.log('🔄 Carregando configurações da loja...');
     const token = localStorage.getItem('authToken');
-    if (!token) return;
 
-    fetch('/api/config', {
-        headers: { 'Authorization': `Bearer ${token}` }
-    })
-        .then(response => response.json())
-        .then(config => {
-            if (config.storePixKey) {
-                const input = document.getElementById('store-pix-key');
-                if (input) input.value = config.storePixKey;
+    const localStoreConfigStr = localStorage.getItem('storeConfig');
+    if (localStoreConfigStr) {
+        try { window.storeConfig = JSON.parse(localStoreConfigStr); } catch (e) { }
+    }
+    if (!window.storeConfig) window.storeConfig = {};
 
-                // Loyalty Config
-                const loyaltyCheckbox = document.getElementById('enable-loyalty');
-                const loyaltyRateInput = document.getElementById('loyalty-cashback-rate');
-                const loyaltyGroup = document.getElementById('loyalty-rate-group');
+    const fillUI = (config) => {
+        const input = document.getElementById('store-pix-key');
+        if (input && config.storePixKey) input.value = config.storePixKey;
 
-                if (loyaltyCheckbox) {
-                    loyaltyCheckbox.checked = config.enableLoyalty || false;
-                    // Add listener for toggle
-                    loyaltyCheckbox.addEventListener('change', () => {
-                        loyaltyGroup.style.display = loyaltyCheckbox.checked ? 'flex' : 'none';
-                    });
-                    // Initial state
-                    loyaltyGroup.style.display = config.enableLoyalty ? 'flex' : 'none';
-                }
-                if (loyaltyRateInput) loyaltyRateInput.value = config.loyaltyCashbackRate || '';
+        const loyaltyCheckbox = document.getElementById('enable-loyalty');
+        const loyaltyRateInput = document.getElementById('loyalty-cashback-rate');
+        const loyaltyGroup = document.getElementById('loyalty-rate-group');
 
-                // Store globally for easy access
-                window.storeConfig = config;
+        if (loyaltyCheckbox) {
+            loyaltyCheckbox.checked = config.enableLoyalty || false;
+            if (loyaltyGroup) {
+                loyaltyGroup.style.display = config.enableLoyalty ? 'flex' : 'none';
+                loyaltyCheckbox.addEventListener('change', () => {
+                    loyaltyGroup.style.display = loyaltyCheckbox.checked ? 'flex' : 'none';
+                });
             }
-        })
-        .catch(err => console.error('Erro ao carregar configurações:', err));
-}
+        }
+        if (loyaltyRateInput) loyaltyRateInput.value = config.loyaltyCashbackRate || '';
 
-// Call loadStoreConfig on startup
-document.addEventListener('DOMContentLoaded', () => {
-    loadStoreConfig();
-});
+        window.storeConfig = config;
+    };
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initApp);
-} else {
-    initApp();
+    fillUI(window.storeConfig);
+
+    if (token) {
+        fetch('/api/config', { headers: { 'Authorization': `Bearer ${token}` } })
+            .then(response => response.json())
+            .then(config => fillUI(config))
+            .catch(err => console.error('Erro ao carregar configurações (API):', err));
+    }
 }
-// ==================== STORE SETTINGS ====================
 
 function updateSellerPin() {
     const pin = document.getElementById('store-seller-pin').value.trim();
-
     if (!pin) {
         alert('Por favor, digite um PIN.');
         return;
@@ -3833,39 +3650,29 @@ function updateSellerPin() {
         });
 }
 
-function saveStoreConfig() {
-    // Placeholder for other store config saving
-    const pixKey = document.getElementById('store-pix-key').value;
-    const enableLoyalty = document.getElementById('enable-loyalty').checked;
-    const cashbackRate = document.getElementById('loyalty-cashback-rate').value;
+// ==================== ONLINE ORDERS SYSTEM (PANEL & NOTIFICATION) ====================
 
-    // Here we would save these to the backend if we had endpoints for them
-    // For now, just alert
-    alert('Configurações salvas (Simulação)!');
-}
-
-// ==================== POS ONLINE ORDERS LOGIC ====================
+let pendingOrder = null;
+let notificationAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
 let onlineOrdersInterval = null;
 
 function toggleOnlineOrdersPanel() {
     const panel = document.getElementById('online-orders-panel');
     if (panel.style.display === 'none' || panel.style.display === '') {
         panel.style.display = 'flex';
-        fetchOnlineOrders();
-        startOnlineOrdersPolling();
+        checkNewOrders(); // Immediate check
     } else {
         panel.style.display = 'none';
-        if (onlineOrdersInterval) clearInterval(onlineOrdersInterval);
     }
 }
 
 function startOnlineOrdersPolling() {
-    fetchOnlineOrders(); // Initial fetch
     if (onlineOrdersInterval) clearInterval(onlineOrdersInterval);
-    onlineOrdersInterval = setInterval(fetchOnlineOrders, 30000); // Poll every 30s
+    checkNewOrders(); // Initial check
+    onlineOrdersInterval = setInterval(checkNewOrders, 10000); // Check every 10s
 }
 
-function fetchOnlineOrders() {
+function checkNewOrders() {
     const token = localStorage.getItem('authToken');
     if (!token) return;
 
@@ -3874,10 +3681,30 @@ function fetchOnlineOrders() {
     })
         .then(res => res.json())
         .then(orders => {
-            renderOnlineOrders(orders);
-            updateOnlineOrdersBadge(orders.length);
+            // MERGE SUBSCRIPTION REQUESTS
+            const subReqs = JSON.parse(localStorage.getItem('subscription_requests') || '[]');
+            const pendingSubs = subReqs.filter(r => r.status === 'pending').map(r => ({ ...r, isSubscription: true }));
+
+            const allItems = [...pendingSubs, ...orders];
+
+            updateOnlineOrdersBadge(allItems.length);
+            const panel = document.getElementById('online-orders-panel');
+            if (panel && panel.style.display !== 'none') {
+                renderOnlineOrders(allItems);
+            }
+
+            if (allItems.length > 0) {
+                const topItem = allItems[0];
+                if (!pendingOrder || pendingOrder.id !== topItem.id) {
+                    pendingOrder = topItem;
+                    showOrderNotification();
+                }
+            } else {
+                hideOrderNotification();
+                pendingOrder = null;
+            }
         })
-        .catch(err => console.error('Error fetching online orders:', err));
+        .catch(err => console.error('Error polling orders:', err));
 }
 
 function updateOnlineOrdersBadge(count) {
@@ -3888,118 +3715,292 @@ function updateOnlineOrdersBadge(count) {
     }
 }
 
-function renderOnlineOrders(orders) {
+function renderOnlineOrders(items) {
     const container = document.getElementById('online-orders-list');
     if (!container) return;
-
     container.innerHTML = '';
 
-    if (orders.length === 0) {
-        container.innerHTML = `
-            <div style="text-align: center; color: #999; margin-top: 2rem; display: flex; flex-direction: column; align-items: center; gap: 1rem;">
-                <i class="ph ph-check-circle" style="font-size: 3rem; color: #ddd;"></i>
-                <span>Nenhum pedido pendente</span>
-            </div>
-        `;
+    if (items.length === 0) {
+        container.innerHTML = '<div style="text-align: center; color: #999; margin-top: 2rem;">Nenhuma solicitação pendente</div>';
         return;
     }
 
-    orders.forEach(order => {
+    items.forEach(item => {
         const card = document.createElement('div');
         card.className = 'online-order-card';
-        card.style.cssText = 'background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: all 0.2s;';
+        card.style.cssText = 'background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 2px 5px rgba(0,0,0,0.05);';
 
-        const itemsList = order.items.map(item =>
-            `<div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: #555; margin-bottom: 4px;">
-                <span>${item.quantity}x ${item.name}</span>
-                <span>R$ ${(item.price * item.quantity).toFixed(2)}</span>
-            </div>`
-        ).join('');
-
-        const deliveryIcon = order.deliveryMethod === 'delivery' ? 'moped' : 'storefront';
-        const deliveryLabel = order.deliveryMethod === 'delivery' ? 'Entrega' : 'Retirada';
-        const deliveryColor = order.deliveryMethod === 'delivery' ? '#f97316' : '#06b6d4';
-
-        card.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.8rem; padding-bottom: 0.8rem; border-bottom: 1px dashed #eee;">
-                <div>
-                    <div style="font-weight: bold; font-size: 1.1rem; color: #1f2937;">${order.clientName || 'Cliente'}</div>
-                    <div style="font-size: 0.8rem; color: #6b7280;">Pedido #${order.id} • ${new Date(order.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+        if (item.isSubscription) {
+            // RENDER SUBSCRIPTION CARD
+            card.innerHTML = `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem;">
+                    <span style="color: var(--accent-purple); font-weight: bold;"><i class="ph ph-crown"></i> Renovação</span>
+                    <span style="color: #666; font-size: 0.85rem;">${new Date(item.date).toLocaleTimeString()}</span>
                 </div>
-                <div style="background: ${deliveryColor}20; color: ${deliveryColor}; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; display: flex; align-items: center; gap: 4px;">
-                    <i class="ph ph-${deliveryIcon}"></i> ${deliveryLabel}
+                <div style="margin-bottom: 0.5rem;">
+                    <strong>Vendedor:</strong> ${item.sellerName}<br>
+                    <span style="font-size: 0.9rem; color: #666;">Solicitou renovação de assinatura.</span>
                 </div>
-            </div>
-
-            <div style="margin-bottom: 1rem; background: #f9fafb; padding: 0.8rem; border-radius: 8px;">
-                ${itemsList}
-                <div style="border-top: 1px solid #e5e7eb; margin-top: 0.5rem; padding-top: 0.5rem; display: flex; justify-content: space-between; font-weight: bold; color: #1f2937;">
-                    <span>Total</span>
-                    <span>R$ ${parseFloat(order.total).toFixed(2)}</span>
+                <div style="margin-bottom: 1rem; text-align: center; background: #f8f8f8; padding: 0.5rem; border-radius: 4px;">
+                    <img src="${item.proof}" style="max-height: 100px; max-width: 100%; border: 1px solid #ddd; cursor: zoom-in;" onclick="openImageModal('${item.proof}')">
+                    <div style="font-size: 0.8rem; color: #888;">Clique para ampliar</div>
                 </div>
-            </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button onclick="handleSubRequest(${item.id}, 'reject')" style="flex: 1; background: #fee2e2; color: #ef4444; border: none; padding: 0.6rem; border-radius: 6px; font-weight: bold; cursor: pointer;">
+                        <i class="ph ph-x"></i> Recusar
+                    </button>
+                    <button onclick="handleSubRequest(${item.id}, 'approve')" style="flex: 1; background: var(--accent-green); color: white; border: none; padding: 0.6rem; border-radius: 6px; font-weight: bold; cursor: pointer;">
+                        <i class="ph ph-check"></i> Aprovar
+                    </button>
+                </div>
+            `;
+        } else {
+            // RENDER NORMAL ORDER CARD
+            const itemsList = item.items.map(p =>
+                `<div>${p.quantity}x ${p.name} - R$ ${(p.price * p.quantity).toFixed(2)}</div>`
+            ).join('');
 
-            ${order.proofImage ?
-                `<div style="margin-bottom: 1rem;">
-                    <div style="font-size: 0.8rem; color: #6b7280; margin-bottom: 4px;">Comprovante:</div>
-                    <a href="${order.proofImage}" target="_blank" style="display: block; border-radius: 8px; overflow: hidden; border: 1px solid #e5e7eb;">
-                        <img src="${order.proofImage}" style="width: 100%; height: 100px; object-fit: cover; display: block;">
-                    </a>
-                </div>` :
-                `<div style="font-size: 0.8rem; color: #9ca3af; font-style: italic; margin-bottom: 1rem;">Sem comprovante</div>`
-            }
+            const proofLink = item.proofImage ? `<button onclick="openImageModal('${item.proofImage}')" class="btn-sm btn-secondary" style="margin-top:5px; width: 100%;"><i class="ph ph-image"></i> Ver Comprovante</button>` : '';
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-                <button onclick="rejectOrder(${order.id})" style="padding: 0.6rem; border: 1px solid #fee2e2; background: white; color: #ef4444; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
-                    Recusar
-                </button>
-                <button onclick="confirmOrder(${order.id})" style="padding: 0.6rem; border: none; background: #10b981; color: white; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);">
-                    Confirmar
-                </button>
-            </div>
-        `;
+            card.innerHTML = `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-weight: bold; color: var(--text-primary);">
+                    <span>${item.clientName || 'Cliente'} (#${item.id})</span>
+                    <span class="status-badge active" style="font-size: 0.8rem;">${item.deliveryMethod === 'delivery' ? 'Entrega' : 'Retirada'}</span>
+                </div>
+                <div style="margin-bottom: 0.5rem; background: #f9f9f9; padding: 0.8rem; border-radius: 8px; font-size: 0.95rem;">${itemsList}</div>
+                <div style="font-weight: bold; margin-bottom: 0.5rem; display: flex; justify-content: space-between;">
+                    <span>Total:</span>
+                    <span>R$ ${parseFloat(item.total).toFixed(2)}</span>
+                </div>
+                <div style="margin-bottom:0.5rem;">${proofLink}</div>
+                <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
+                    <button onclick="rejectOrder(${item.id})" style="flex: 1; background: #fee2e2; color: #ef4444; border: 1px solid transparent; padding: 0.6rem; border-radius: 6px; cursor: pointer; transition: 0.2s;">Recusar</button>
+                    <button onclick="confirmOrder(${item.id})" style="flex: 1; background: var(--success); color: white; border: 1px solid transparent; padding: 0.6rem; border-radius: 6px; cursor: pointer; transition: 0.2s;">Confirmar</button>
+                </div>
+            `;
+        }
 
         container.appendChild(card);
     });
 }
 
-function confirmOrder(orderId) {
-    if (!confirm('Confirmar este pedido? O status será alterado para concluído.')) return;
+function showOrderNotification() {
+    const notif = document.getElementById('new-order-notification');
+    if (notif) {
+        notif.style.display = 'block';
+        try { notificationAudio.play().catch(e => { }); } catch (e) { }
+    }
+}
 
-    const token = localStorage.getItem('authToken');
-    fetch(`/api/pos/online-orders/${orderId}/confirm`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-    })
-        .then(res => res.json())
-        .then(data => {
-            alert('✅ ' + data.message);
-            fetchOnlineOrders(); // Refresh list
-        })
-        .catch(err => alert('Erro ao confirmar pedido'));
+function hideOrderNotification() {
+    const notif = document.getElementById('new-order-notification');
+    if (notif) notif.style.display = 'none';
+}
+
+function openOrderApprovalModal() {
+    if (!pendingOrder) return;
+    hideOrderNotification();
+    const modal = document.getElementById('order-approval-modal');
+    document.getElementById('approval-client-name').textContent = pendingOrder.clientName || 'Cliente';
+    document.getElementById('approval-order-total').textContent = formatCurrency(pendingOrder.total);
+    const proofImg = document.getElementById('approval-proof-image');
+    if (pendingOrder.proofImage) { proofImg.src = pendingOrder.proofImage; proofImg.style.display = 'block'; document.getElementById('approval-no-proof').style.display = 'none'; }
+    else { proofImg.style.display = 'none'; document.getElementById('approval-no-proof').style.display = 'block'; }
+
+    // Items
+    const list = document.getElementById('approval-items-list');
+    list.innerHTML = '';
+    pendingOrder.items.forEach(item => {
+        list.innerHTML += `<li>${item.quantity}x ${item.name} - ${formatCurrency(item.price * item.quantity)}</li>`;
+    });
+    modal.style.display = 'flex';
+}
+
+function closeOrderApprovalModal() {
+    document.getElementById('order-approval-modal').style.display = 'none';
+    setTimeout(showOrderNotification, 5000);
+}
+
+function confirmOrder(orderId) {
+    if (!confirm('Confirmar pedido?')) return;
+    processOrderAction(orderId, 'confirm');
 }
 
 function rejectOrder(orderId) {
-    if (!confirm('Tem certeza que deseja recusar este pedido?')) return;
+    if (!confirm('Recusar pedido?')) return;
+    processOrderAction(orderId, 'reject');
+}
 
+function confirmCurrentOrder() {
+    if (!pendingOrder) return;
+    if (!confirm('Confirmar pagamento?')) return;
+    processOrderAction(pendingOrder.id, 'confirm').then(() => { closeOrderApprovalModal(); hideOrderNotification(); pendingOrder = null; checkNewOrders(); });
+}
+
+function rejectCurrentOrder() {
+    if (!pendingOrder) return;
+    if (!confirm('Recusar?')) return;
+    processOrderAction(pendingOrder.id, 'reject').then(() => { closeOrderApprovalModal(); hideOrderNotification(); pendingOrder = null; checkNewOrders(); });
+}
+
+function processOrderAction(orderId, action) {
     const token = localStorage.getItem('authToken');
-    fetch(`/api/pos/online-orders/${orderId}/reject`, {
+    return fetch(`/api/pos/online-orders/${orderId}/${action}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
     })
         .then(res => res.json())
         .then(data => {
-            alert('Pedido recusado.');
-            fetchOnlineOrders(); // Refresh list
+            alert(action === 'confirm' ? '✅ Aprovado!' : 'Recusado.');
+            checkNewOrders();
+            if (typeof loadSales === 'function') loadSales();
         })
-        .catch(err => alert('Erro ao recusar pedido'));
+        .catch(err => alert('Erro ao processar'));
 }
 
+// ==================== BACKUP & RESTORE ====================
+function downloadBackup() {
+    const token = localStorage.getItem('authToken');
+    if (!token) return alert('Você precisa estar logado.');
 
+    const btn = event.currentTarget; // Assuming calling from button onclick
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Gerando Backup...';
+    btn.disabled = true;
 
-// Start polling when dashboard loads or when switching to Caixa tab
-document.addEventListener('DOMContentLoaded', () => {
-    if (typeof startOnlineOrdersPolling === 'function') {
-        startOnlineOrdersPolling();
+    fetch('/api/backup', {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    })
+        .then(response => {
+            if (response.ok) return response.blob();
+            // Tenta ler o JSON de erro, se falhar usa o status text
+            return response.json()
+                .then(err => { throw new Error(err.error || response.statusText) })
+                .catch(() => { throw new Error(`Erro ${response.status}: ${response.statusText || 'Falha na requisição'}`) });
+        })
+        .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `backup_loja_${new Date().toISOString().slice(0, 10)}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
+            alert('✅ Backup baixado com sucesso!');
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Erro ao fazer backup: ' + err.message);
+        })
+        .finally(() => {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        });
+}
+
+function restoreBackup() {
+    const input = document.getElementById('backup-file-input');
+    if (!input.files || !input.files[0]) {
+        return alert('Por favor, selecione um arquivo de backup (.zip).');
     }
+
+    if (!confirm('⚠️ ATENÇÃO: Isso irá substituir TODOS os dados atuais pelos do backup (Produtos, Fotos, Clientes, Vendas).\n\nTem certeza que deseja continuar?')) {
+        return;
+    }
+
+    const token = localStorage.getItem('authToken');
+    const formData = new FormData();
+    formData.append('backup', input.files[0]);
+
+    const btn = document.getElementById('btn-restore-backup');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Restaurando...';
+    btn.disabled = true;
+
+    fetch('/api/restore', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`
+        },
+        body: formData
+    })
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) throw new Error(data.error);
+            alert('✅ ' + data.message);
+            window.location.reload();
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Erro ao restaurar: ' + err.message);
+        })
+        .finally(() => {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        });
+}
+
+// ==================== NOTIFICATIONS ====================
+function showNotification(message, type = 'info') {
+    const container = document.getElementById('notification-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `notification-toast ${type}`;
+
+    let icon = 'ph-info';
+    if (type === 'success') icon = 'ph-check-circle';
+    if (type === 'error') icon = 'ph-warning-circle';
+    if (type === 'warning') icon = 'ph-warning';
+
+    toast.innerHTML = `
+        <i class="ph ${icon}"></i>
+        <span>${message}</span>
+    `;
+
+    container.appendChild(toast);
+
+    // Trigger reflow
+    toast.offsetHeight;
+
+    // Show
+    toast.classList.add('show');
+
+    // Hide after 3s
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => {
+            toast.remove();
+        }, 300);
+    }, 3000);
+}
+
+// ==================== IMAGE MODAL HELPER ====================
+function openImageModal(src) {
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; display:flex; align-items:center; justify-content:center; cursor:pointer;';
+    modal.onclick = () => modal.remove();
+
+    const img = document.createElement('img');
+    img.src = src;
+    img.style.cssText = 'max-width:90%; max-height:90%; border-radius:8px; box-shadow:0 0 20px rgba(0,0,0,0.5); transform:scale(0.9); transition:transform 0.2s;';
+
+    // Simple animation
+    setTimeout(() => img.style.transform = 'scale(1)', 10);
+
+    modal.appendChild(img);
+    document.body.appendChild(modal);
+}
+
+// ==================== APP INITIALIZATION ====================
+document.addEventListener('DOMContentLoaded', () => {
+    initApp();
+    if (typeof checkServerStatus === 'function') checkServerStatus();
+    if (typeof loadStoreConfig === 'function') loadStoreConfig();
+    if (typeof startOnlineOrdersPolling === 'function') startOnlineOrdersPolling();
+    if (typeof updateClock === 'function') { updateClock(); setInterval(updateClock, 1000); }
+    if (typeof loadVersion === 'function') loadVersion();
 });

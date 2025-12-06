@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug QR Code (QRious)</title>
+    <!-- Import QRious Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        #qr-output {
+            margin-top: 20px;
+            border: 2px dashed #ccc;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 260px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: blue;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 4px;
+        }
+
+        button:hover {
+            background: darkblue;
+        }
+
+        #log {
+            margin-top: 20px;
+            background: #333;
+            color: #0f0;
+            padding: 10px;
+            font-family: monospace;
+            height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Debug QR Code (QRious)</h1>
+        <p>Teste isolado usando a biblioteca QRious.</p>
+
+        <div style="margin-bottom: 10px;">
+            <label>Chave PIX:</label>
+            <input type="text" id="pix-key" value="12345678900" style="width: 100%; padding: 5px;">
+        </div>
+        <div style="margin-bottom: 10px;">
+            <label>Valor:</label>
+            <input type="number" id="pix-amount" value="10.00" style="width: 100%; padding: 5px;">
+        </div>
+
+        <button onclick="runDebug()">Gerar QR Code</button>
+
+        <div id="qr-output">
+            <canvas id="debug-canvas"></canvas>
+        </div>
+    </div>
+
+    <div id="log"></div>
+
+    <script>
+        function log(msg) {
+            const logEl = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            logEl.innerHTML += `[${time}] ${msg}<br>`;
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(msg);
+        }
+
+        function generateCRC16(payload) {
+            const polynomial = 0x1021;
+            let crc = 0xFFFF;
+
+            for (let i = 0; i < payload.length; i++) {
+                crc ^= (payload.charCodeAt(i) << 8);
+                for (let j = 0; j < 8; j++) {
+                    if ((crc & 0x8000) !== 0) {
+                        crc = (crc << 1) ^ polynomial;
+                    } else {
+                        crc = (crc << 1);
+                    }
+                }
+            }
+
+            return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+        }
+
+        function generatePixPayload(key, name, city, amount, txId = '***') {
+            log('Generating Payload...');
+            const normalize = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+
+            const formatField = (id, value) => {
+                const len = value.length.toString().padStart(2, '0');
+                return `${id}${len}${value}`;
+            };
+
+            const merchantAccount = formatField('00', 'BR.GOV.BCB.PIX') + formatField('01', key);
+            const merchantCategory = '0000';
+            const transactionCurrency = '986';
+            const countryCode = 'BR';
+            const merchantName = normalize(name).substring(0, 25);
+            const merchantCity = normalize(city).substring(0, 15);
+
+            let payload =
+                '000201' +
+                formatField('26', merchantAccount) +
+                formatField('52', merchantCategory) +
+                formatField('53', transactionCurrency);
+
+            if (amount) {
+                payload += formatField('54', parseFloat(amount).toFixed(2));
+            }
+
+            payload +=
+                formatField('58', countryCode) +
+                formatField('59', merchantName) +
+                formatField('60', merchantCity) +
+                formatField('62', formatField('05', txId)) +
+                '6304';
+
+            const crc = generateCRC16(payload);
+            return payload + crc;
+        }
+
+        function runDebug() {
+            log('Starting Debug...');
+
+            if (typeof QRious === 'undefined') {
+                log('ERROR: QRious library not loaded!');
+                return;
+            }
+            log('QRious library found.');
+
+            const key = document.getElementById('pix-key').value;
+            const amount = document.getElementById('pix-amount').value;
+            const canvas = document.getElementById('debug-canvas');
+
+            try {
+                const payload = generatePixPayload(key, 'TESTE DEBUG', 'BRASILIA', amount);
+                log('Payload: ' + payload);
+
+                log('Creating QRious instance...');
+                new QRious({
+                    element: canvas,
+                    value: payload,
+                    size: 250,
+                    level: 'M'
+                });
+                log('QRious instance created.');
+
+            } catch (e) {
+                log('EXCEPTION: ' + e.message);
+                console.error(e);
+            }
+        }
+    </script>
+</body>
+
+</html>

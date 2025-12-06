@@ -1273,6 +1273,100 @@ app.post('/api/pos/online-orders/:id/reject', authenticateToken, (req, res) => {
     });
 });
 
+// ==================== BACKUP & RESTORE ====================
+const archiver = require('archiver');
+const admZip = require('adm-zip');
+
+app.get('/api/backup', authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    console.log(`[BACKUP] Starting backup for User ID: ${userId}`);
+
+    const dbPath = path.join(__dirname, `user_${userId}.db`);
+    const uploadsDir = path.join(__dirname, 'public/uploads');
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.attachment(`backup_${userId}_${new Date().toISOString().slice(0, 10)}.zip`);
+
+    const archive = archiver('zip', {
+        zlib: { level: 9 }
+    });
+
+    archive.on('error', function (err) {
+        console.error('[BACKUP ERROR] Archiver error:', err);
+        if (!res.headersSent) {
+            res.status(500).send({ error: err.message });
+        }
+    });
+
+    archive.on('end', () => {
+        console.log(`[BACKUP] Backup finished for User ID: ${userId}, Total bytes: ${archive.pointer()}`);
+    });
+
+    archive.pipe(res);
+
+    // Add Database
+    if (fs.existsSync(dbPath)) {
+        console.log(`[BACKUP] Adding database file: ${dbPath}`);
+        archive.file(dbPath, { name: 'database.db' });
+    } else {
+        console.warn(`[BACKUP] Database file not found: ${dbPath}`);
+    }
+
+    // Add Uploads
+    if (fs.existsSync(uploadsDir)) {
+        console.log(`[BACKUP] Adding uploads directory: ${uploadsDir}`);
+        archive.directory(uploadsDir, 'uploads');
+    }
+
+    archive.finalize();
+});
+
+app.post('/api/restore', authenticateToken, upload.single('backup'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+    }
+
+    const userId = req.user.id;
+    const dbPath = path.join(__dirname, `user_${userId}.db`);
+    const uploadsDir = path.join(__dirname, 'public/uploads');
+    const zipPath = req.file.path;
+
+    try {
+        const zip = new admZip(zipPath);
+        const zipEntries = zip.getEntries();
+
+        // 1. Restore Database
+        const dbEntry = zipEntries.find(entry => entry.entryName === 'database.db');
+        if (dbEntry) {
+            // Close existing DB connections if any (simplified: we rely on getUserDb opening new ones)
+            // Ideally we should force close, but for sqlite file swap it often works or requires restart
+            // For safety, we overwrite. 
+            // Warning: active connections might lock the file on Windows.
+            // Solving this properly requires a DB pool manager. 
+            // For this scope: We attempt to write. 
+            fs.writeFileSync(dbPath, dbEntry.getData());
+        }
+
+        // 2. Restore Uploads
+        zipEntries.forEach(entry => {
+            if (entry.entryName.startsWith('uploads/') && !entry.isDirectory) {
+                const fileName = entry.entryName.replace('uploads/', '');
+                const targetPath = path.join(uploadsDir, fileName);
+                fs.writeFileSync(targetPath, entry.getData());
+            }
+        });
+
+        // Cleanup uploaded zip
+        fs.unlinkSync(zipPath);
+
+        res.json({ message: 'Backup restaurado com sucesso! Recarregue a página.' });
+
+    } catch (err) {
+        console.error('Restore error:', err);
+        res.status(500).json({ error: 'Erro ao restaurar backup: ' + err.message });
+    }
+});
+
 // Rota para obter a versÃ£o do sistema
 app.get('/api/version', (req, res) => {
     try {

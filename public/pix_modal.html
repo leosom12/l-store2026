@@ -1,0 +1,60 @@
+<!-- ==================== PREMIUM PIX MODAL ==================== -->
+<div id="pix-modal" class="modal"
+    style="display: none; align-items: center; justify-content: center; z-index: 2000; backdrop-filter: blur(10px); background: rgba(0,0,0,0.8);">
+    <div class="modal-content"
+        style="background: #131829; border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; text-align: center; max-width: 420px; width: 90%; padding: 2.5rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
+
+        <div style="margin-bottom: 2rem;">
+            <div
+                style="width: 60px; height: 60px; background: rgba(0, 212, 255, 0.1); border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
+                <i class="ph ph-qr-code" style="font-size: 32px; color: #00d4ff;"></i>
+            </div>
+            <h2 style="margin-bottom: 0.5rem; color: #fff; font-size: 1.5rem; font-weight: 700;">Pagamento via PIX</h2>
+            <p style="color: #94a3b8; font-size: 0.95rem;">Escaneie o QR Code abaixo para pagar</p>
+        </div>
+
+        <!-- Container for QR Code -->
+        <div id="pix-qr-container"
+            style="background: white; padding: 1.5rem; border-radius: 20px; display: inline-block; margin-bottom: 2rem; box-shadow: 0 0 0 1px rgba(255,255,255,0.1);">
+            <div id="pix-qr-code"></div>
+        </div>
+
+        <!-- PIX Key -->
+        <div
+            style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 16px; margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; border: 1px solid rgba(255,255,255,0.05);">
+            <div style="text-align: left; overflow: hidden; margin-right: 1rem;">
+                <span
+                    style="display: block; font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Chave
+                    PIX (Copia e Cola)</span>
+                <span id="pix-key-display"
+                    style="color: #00d4ff; font-weight: 600; font-family: 'Courier New', monospace; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">RANDOM-KEY-123</span>
+            </div>
+            <button class="btn-icon" onclick="copyPixKey()"
+                style="background: rgba(0, 212, 255, 0.1); border: none; width: 40px; height: 40px; border-radius: 10px; color: #00d4ff; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
+                <i class="ph ph-copy" style="font-size: 1.2rem;"></i>
+            </button>
+        </div>
+
+        <!-- Timer -->
+        <div
+            style="margin-bottom: 2rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; background: rgba(251, 146, 60, 0.1); padding: 0.5rem 1rem; border-radius: 50px; display: inline-flex;">
+            <i class="ph ph-timer" style="color: #fb923c;"></i>
+            <span style="color: #fb923c; font-size: 0.9rem; font-weight: 600;">Expira em: <span
+                    id="pix-timer">05:00</span></span>
+        </div>
+
+        <div class="action-buttons" style="display: flex; flex-direction: column; gap: 1rem;">
+            <button class="btn-success" onclick="confirmPayment()"
+                style="padding: 1rem; font-size: 1rem; border-radius: 14px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);">
+                <i class="ph ph-check-circle" style="font-size: 1.2rem;"></i> Confirmar Pagamento
+            </button>
+            <button class="btn-ghost" onclick="closePixModal()"
+                style="background: transparent; border: none; color: #94a3b8; font-weight: 500; cursor: pointer; padding: 0.5rem; transition: color 0.2s;">
+                Cancelar Operação
+            </button>
+        </div>
+    </div>
+</div>
+</body>
+
+</html>
