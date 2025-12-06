@@ -46,7 +46,21 @@ function login(event) {
                 updateClock();
                 setInterval(updateClock, 1000);
                 checkServerStatus();
+                checkServerStatus();
+
+                // Check Subscription Status
+                if (!data.user.isAdmin && data.user.subscriptionStatus !== 'active') {
+                    showSubscriptionBlock();
+                    return; // Stop loading dashboard
+                }
+
                 switchTab('dashboard');
+
+                // Show Admin TP button if admin
+                if (data.user.isAdmin) {
+                    const tpBtn = document.getElementById('admin-tp-btn');
+                    if (tpBtn) tpBtn.style.display = 'flex';
+                }
 
                 const userInfo = document.getElementById('user-info');
                 if (userInfo) userInfo.textContent = `Olá, ${data.user.username}`;
@@ -111,6 +125,123 @@ let allProducts = [];
 let currentTab = 'dashboard';
 let pixTimerInterval = null;
 let currentUser = null;
+
+// ==================== ADMIN / SUBSCRIPTION LOGIC ====================
+function showAdminUsers() {
+    // Hide dashboard, show admin screen
+    document.getElementById('app-screen').style.display = 'none'; // Or just overlay? simpler to hide app-screen content or use screen
+    // Actually our screens are usually top level.
+    // But dashboard is inside app-screen. 
+    // Let's hide app-screen entirely and show admin-users-screen
+    document.getElementById('app-screen').style.display = 'none';
+    document.getElementById('admin-users-screen').style.display = 'flex';
+
+    loadAdminUsers();
+}
+
+function loadAdminUsers() {
+    const token = localStorage.getItem('authToken');
+    fetch('/api/admin/users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+    })
+        .then(res => res.json())
+        .then(users => {
+            const tbody = document.getElementById('admin-users-table-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            users.forEach(user => {
+                const isExpired = user.subscriptionExpiresAt && new Date(user.subscriptionExpiresAt) < new Date();
+                const statusLabel = user.subscriptionStatus === 'active'
+                    ? (isExpired ? '<span style="color: orange">Expirado</span>' : '<span style="color: green">Ativo</span>')
+                    : '<span style="color: red">Inativo</span>';
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                <td>${user.id}</td>
+                <td>${user.username} ${user.isAdmin ? '(ADM)' : ''}</td>
+                <td>${user.email}</td>
+                <td>${statusLabel}</td>
+                <td>${user.subscriptionExpiresAt ? new Date(user.subscriptionExpiresAt).toLocaleDateString() : '-'}</td>
+                <td>
+                    ${!user.isAdmin ? `
+                        <button onclick="toggleUserStatus(${user.id}, '${user.subscriptionStatus === 'active' ? 'inactive' : 'active'}')" 
+                            class="btn-sm" style="background: ${user.subscriptionStatus === 'active' ? '#ef4444' : '#22c55e'}; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
+                            ${user.subscriptionStatus === 'active' ? 'Desativar' : 'Ativar'}
+                        </button>
+                    ` : '-'}
+                </td>
+            `;
+                tbody.appendChild(tr);
+            });
+        })
+        .catch(err => console.error('Erro ao carregar usuários:', err));
+}
+
+function toggleUserStatus(userId, newStatus) {
+    if (!confirm(`Deseja realmente ${newStatus === 'active' ? 'ativar' : 'desativar'} este usuário?`)) return;
+
+    const token = localStorage.getItem('authToken');
+    fetch(`/api/admin/users/${userId}/status`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: newStatus })
+    })
+        .then(res => res.json())
+        .then(data => {
+            alert(data.message);
+            loadAdminUsers(); // Reload list
+        })
+        .catch(err => alert('Erro ao alterar status'));
+}
+
+function showSubscriptionBlock() {
+    document.getElementById('auth-screen').style.setProperty('display', 'none', 'important');
+    document.getElementById('app-screen').style.setProperty('display', 'none', 'important');
+    document.getElementById('client-login-screen').style.display = 'none'; // Ensure client login is hidden
+
+    const blockScreen = document.getElementById('subscription-block-screen');
+    blockScreen.style.display = 'flex';
+    blockScreen.style.zIndex = '9999'; // Ensure top z-index
+
+    // Generate QR Code
+    const qrContainer = document.getElementById('block-pix-qr');
+    if (qrContainer && typeof QRCode !== 'undefined') {
+        qrContainer.innerHTML = '';
+        new QRCode(qrContainer, {
+            text: "00020126330014BR.GOV.BCB.PIX0114628193580001065204000053039865802BR5913MPAMPLONA6008BRASILIA62070503***63041A2B", // Basic PIX payload for the CNPJ key
+            width: 200,
+            height: 200
+        });
+    }
+}
+
+function submitSubscriptionProof(e) {
+    e.preventDefault();
+    const fileInput = document.getElementById('subscription-proof-file');
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('proof', file);
+
+    const token = localStorage.getItem('authToken');
+
+    fetch('/api/subscription/proof', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+    })
+        .then(res => res.json())
+        .then(data => {
+            alert('Comprovante enviado com sucesso! Aguarde a ativação.');
+            fileInput.value = '';
+        })
+        .catch(err => alert('Erro ao enviar comprovante'));
+}
 
 // ==================== INICIALIZAÇÃO ====================
 
@@ -241,6 +372,12 @@ function switchTab(tabName) {
     if (tabName === 'estoque') {
         loadStockMovements();
         loadStockSummary();
+    }
+
+    // If returning to dashboard, check admin button visibility again
+    if (tabName === 'dashboard') {
+        document.getElementById('app-screen').style.display = 'flex';
+        document.getElementById('admin-users-screen').style.display = 'none';
     }
 }
 
@@ -401,6 +538,7 @@ function logout() {
     cart = [];
 
     document.getElementById('app-screen').style.display = 'none';
+    document.getElementById('subscription-block-screen').style.display = 'none'; // FIX: Hide block screen
     document.getElementById('auth-screen').style.display = 'flex';
 }
 
@@ -3384,6 +3522,24 @@ function initApp() {
     const userData = localStorage.getItem('userData');
 
     if (token && userData) {
+        try {
+            currentUser = JSON.parse(userData); // Set global user
+
+            // Check Subscription Status (skip for admin)
+            if (!currentUser.isAdmin && currentUser.subscriptionStatus !== 'active') {
+                showSubscriptionBlock();
+                return;
+            }
+
+            // Show Admin TP button if admin
+            if (currentUser.isAdmin) {
+                const tpBtn = document.getElementById('admin-tp-btn');
+                if (tpBtn) tpBtn.style.display = 'flex';
+            }
+        } catch (e) {
+            console.error('Error parsing user data:', e);
+        }
+
         document.getElementById('auth-screen').style.display = 'none';
         document.getElementById('app-screen').style.display = 'block';
 

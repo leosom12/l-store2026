@@ -2367,3 +2367,19 @@ body {
 .notification-toast.error i { color: var(--accent-red); }
 .notification-toast.warning i { color: var(--accent-orange); }
 .notification-toast.info i { color: var(--accent-cyan); }
+/ *   = = = = = = = = = = = = = = = = = = = =   S U B S C R I P T I O N   B L O C K   S C R E E N   = = = = = = = = = = = = = = = = = = = =   * /  
+ # s u b s c r i p t i o n - b l o c k - s c r e e n   {  
+         p o s i t i o n :   f i x e d ;  
+         / *   F o r c e   f i x e d   f u l l   s c r e e n   * /  
+         t o p :   0 ;  
+         l e f t :   0 ;  
+         w i d t h :   1 0 0 % ;  
+         h e i g h t :   1 0 0 % ;  
+         z - i n d e x :   1 0 0 0 0 ;  
+         / *   H i g h e s t   Z - I n d e x   * /  
+         d i s p l a y :   n o n e ;  
+         / *   D e f a u l t   h i d d e n   * /  
+         b a c k g r o u n d - c o l o r :   # 0 f 1 7 2 a ;  
+         / *   F a l l b a c k   b a c k g r o u n d   * /  
+ }  
+ 

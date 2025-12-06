@@ -15,7 +15,7 @@
     <link rel="manifest" href="/manifest.json">
     <link rel="icon" type="image/png" href="/icon-192.png">
     <link rel="apple-touch-icon" href="/icon-512.png">
-    <link rel="stylesheet" href="styles.css?v=5.1.0">
+    <link rel="stylesheet" href="styles.css?v=6.0.0">
 
 </head>
 
@@ -118,7 +118,7 @@
                         <i class="ph ph-envelope-simple"></i> <span>djleocv.hotmail.com@gmail.com</span>
                     </div>
                     <div style="font-weight: bold; color: var(--accent-cyan);">
-                        Versão: <span id="app-version">5.1</span>
+                        Versão: <span id="app-version">6.0</span>
                     </div>
                 </div>
             </div>
@@ -399,7 +399,88 @@
         </div>
     </div>
 
-    <!-- ========== TELA PRINCIPAL DO APP ========== -->
+    <!-- ========== TELA DE ADMINISTRAÇÃO (TP) ========== -->
+    <div id="admin-users-screen" class="screen" style="display: none;">
+        <div class="store-container">
+            <div class="cart-header">
+                <button onclick="switchTab('dashboard')" class="btn-back">
+                    <i class="ph ph-arrow-left"></i>
+                </button>
+                <h2>Administração de Usuários</h2>
+            </div>
+            <div class="table-container" style="background: white; border-radius: 8px; padding: 1rem;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Usuário</th>
+                            <th>Email</th>
+                            <th>Status</th>
+                            <th>Expira em</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-users-table-body">
+                        <!-- Users will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== TELA DE BLOQUEIO (ASSINATURA) ========== -->
+    <div id="subscription-block-screen" class="screen"
+        style="display: none; background: #0f172a; align-items: center; justify-content: center;">
+        <div class="auth-container" style="text-align: center; max-width: 500px;">
+            <div style="color: var(--accent-orange); font-size: 4rem; margin-bottom: 1rem;">
+                <i class="ph ph-lock-key"></i>
+            </div>
+            <h1 style="color: white; margin-bottom: 0.5rem;">Conta Bloqueada</h1>
+            <p style="color: #94a3b8; margin-bottom: 2rem;">Sua assinatura expirou ou está inativa. Realize o pagamento
+                para continuar.</p>
+
+            <div class="plan-card"
+                style="background: rgba(255,255,255,0.05); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-glass); margin-bottom: 2rem;">
+                <h3 style="color: white; margin-bottom: 0.5rem;">Plano Mensal</h3>
+                <div style="font-size: 2.5rem; font-weight: bold; color: var(--accent-green);">R$ 50,00<span
+                        style="font-size: 1rem; color: #94a3b8;">/mês</span></div>
+            </div>
+
+            <div style="background: white; padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem;">
+                <p style="color: #1e40af; font-weight: bold; margin-bottom: 1rem;">Pagamento via PIX</p>
+                <!-- Static QR Code Image or Placeholder logic if we had a generator lib loaded here usually -->
+                <div id="block-pix-qr"
+                    style="margin-bottom: 1rem; background: #f0f0f0; padding: 10px; display: inline-block;">
+                    <!-- QR Code will be rendered here by JS -->
+                </div>
+                <p style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">Chave PIX:</p>
+                <div
+                    style="background: #f1f5f9; padding: 0.8rem; border-radius: 8px; font-family: monospace; font-weight: bold; color: #333; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                    <span id="block-pix-key">62819358000106</span>
+                    <button onclick="navigator.clipboard.writeText('62819358000106'); alert('Chave PIX copiada!')"
+                        style="background: none; border: none; cursor: pointer; color: #3b82f6;">
+                        <i class="ph ph-copy"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div style="text-align: left;">
+                <label style="color: #94a3b8; display: block; margin-bottom: 0.5rem;">Enviar Comprovante</label>
+                <form id="block-proof-form" onsubmit="submitSubscriptionProof(event)"
+                    style="display: flex; gap: 0.5rem;">
+                    <input type="file" id="subscription-proof-file" accept="image/*" required
+                        style="flex: 1; padding: 0.5rem; background: rgba(255,255,255,0.1); border: 1px solid var(--border-glass); border-radius: 8px; color: white;">
+                    <button type="submit" class="btn-primary" style="white-space: nowrap;">
+                        <i class="ph ph-paper-plane-right"></i> Enviar
+                    </button>
+                </form>
+            </div>
+
+            <button onclick="logout()" class="btn-text" style="margin-top: 2rem; color: #ef4444;">
+                <i class="ph ph-sign-out"></i> Sair e tentar outra conta
+            </button>
+        </div>
+    </div>
     <!-- ========== TELA PRINCIPAL DO APP ========== -->
     <div id="app-screen" class="screen" style="display: none;">
         <div class="app-container">
@@ -425,6 +506,11 @@
                     </div>
                     <button class="header-btn"><i class="ph ph-arrows-clockwise"></i> SINCRONIZAR</button>
                     <button class="header-btn"><i class="ph ph-gear"></i> OPÇÕES</button>
+                    <!-- Admin TP Button (Hidden by default, shown via JS) -->
+                    <button id="admin-tp-btn" class="header-btn" style="display: none; background-color: #3b82f6;"
+                        onclick="showAdminUsers()">
+                        <i class="ph ph-shield-check"></i> TP
+                    </button>
                 </div>
             </header>
 

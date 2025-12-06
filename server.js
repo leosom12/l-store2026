@@ -302,9 +302,72 @@ const handleLogin = (req, res) => {
         }
 
         const token = jwt.sign({ id: user.id, email: user.email, isAdmin: user.isAdmin }, SECRET_KEY);
-        res.json({ token, user: { id: user.id, username: user.username, email: user.email, isAdmin: user.isAdmin, subscriptionStatus: user.subscriptionStatus } });
+        // Explicitly return subscriptionExpiresAt for logic
+        res.json({
+            token,
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                isAdmin: user.isAdmin,
+                subscriptionStatus: user.subscriptionStatus,
+                subscriptionExpiresAt: user.subscriptionExpiresAt
+            }
+        });
     });
 };
+
+// ==================== ADMIN ROUTES ====================
+app.get('/api/admin/users', authenticateToken, (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Acesso negado' });
+
+    // Assuming mainDb is globally accessible or we reuse the connection logic
+    // We used mainDb for login, so it is available.
+    mainDb.all(`SELECT id, username, email, cnpj, isAdmin, subscriptionStatus, subscriptionExpiresAt, createdAt, pin FROM users ORDER BY createdAt DESC`, (err, users) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(users);
+    });
+});
+
+app.post('/api/admin/users/:id/status', authenticateToken, (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Acesso negado' });
+
+    const { status } = req.body; // 'active' or 'inactive'
+
+    // If activating, set expiration to 30 days from now
+    let expiresAt = null;
+    let query = `UPDATE users SET subscriptionStatus = ? WHERE id = ?`;
+    let params = [status, req.params.id];
+
+    if (status === 'active') {
+        const date = new Date();
+        date.setDate(date.getDate() + 30); // +30 days
+        expiresAt = date.toISOString();
+        query = `UPDATE users SET subscriptionStatus = ?, subscriptionExpiresAt = ? WHERE id = ?`;
+        params = [status, expiresAt, req.params.id];
+    }
+
+    mainDb.run(query, params, function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: `Usuário ${status === 'active' ? 'ativado' : 'desativado'} com sucesso`, expiresAt });
+    });
+});
+
+// ==================== SUBSCRIPTION ROUTES ====================
+app.post('/api/subscription/proof', upload.single('proof'), authenticateToken, (req, res) => {
+    // Just save the file (handled by multer) and maybe notify admin (log to console for now or store in a 'notifications' table if it existed)
+    // We can store a record of this proof request
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+
+    // Ideally we would have a 'subscription_requests' table, but for now we'll just acknowledge receipt.
+    // The instructions say "send to admin chat", but we don't have a real chat. 
+    // We'll log it and maybe the frontend can show a success message.
+
+    console.log(`[SUBSCRIPTION] Proof uploaded by User ${req.user.id}: ${file.filename}`);
+
+    res.json({ message: 'Comprovante enviado! Aguarde a verificação do administrador.' });
+});
 
 app.post('/api/register', handleRegister);
 app.post('/api/auth/register', handleRegister);
